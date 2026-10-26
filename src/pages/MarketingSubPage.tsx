@@ -21,7 +21,7 @@ export function MarketingSubPage({
   heroTheme = 'gradient',
   bullets = [],
   ctaLabel = 'Download the app',
-  ctaHref = '#download',
+  ctaHref = '/signup',
 }: MarketingSubPageProps) {
   const heroClass =
     heroTheme === 'dark'

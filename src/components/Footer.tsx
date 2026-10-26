@@ -4,16 +4,16 @@ const linkColumns = [
   {
     title: 'Crypto',
     links: [
-      { label: 'Crypto', to: '#' },
-      { label: 'Revolut Ramp', to: '#' },
-      { label: 'Revolut X', to: '#' },
+      { label: 'Crypto', to: '/crypto' },
+      { label: 'Nevolute Ramp', to: '/crypto' },
+      { label: 'Nevolute X', to: '/crypto' },
     ],
   },
   {
     title: 'Mobile & Connectivity',
     links: [
-      { label: 'Mobile Plans', to: '#' },
-      { label: 'Data Plans', to: '#' },
+      { label: 'Mobile Plans', to: '/mobile' },
+      { label: 'Data Plans', to: '/mobile' },
     ],
   },
   {
@@ -27,10 +27,10 @@ const linkColumns = [
   {
     title: 'Help',
     links: [
-      { label: 'Contact Us', to: '#' },
-      { label: 'Help Centre', to: '#' },
-      { label: 'System Status', to: '#' },
-      { label: 'Developers API', to: '#' },
+      { label: 'Contact Us', to: '/help' },
+      { label: 'Help Centre', to: '/help' },
+      { label: 'System Status', to: '/help' },
+      { label: 'Developers API', to: '/help' },
     ],
   },
   {
@@ -47,12 +47,21 @@ const linkColumns = [
   {
     title: 'Accounts',
     links: [
-      { label: 'Bank Account', to: '/' },
-      { label: 'Joint Account', to: '/' },
+      { label: 'Bank Account', to: '/accounts' },
+      { label: 'Joint Account', to: '/accounts' },
       { label: 'Savings Account', to: '/savings' },
       { label: 'Cards', to: '/cards' },
     ],
   },
+]
+
+const legalLinks = [
+  { label: 'Website Terms', to: '/legal' },
+  { label: 'Legal Agreements', to: '/legal' },
+  { label: 'Complaints', to: '/legal' },
+  { label: 'Privacy', to: '/legal' },
+  { label: 'UK Modern Slavery Policy', to: '/legal' },
+  { label: 'Admin access', to: '/admin' },
 ]
 
 export function Footer() {
@@ -80,23 +89,16 @@ export function Footer() {
         </div>
 
         <div className="mt-14 flex flex-col gap-6 border-t border-revolut-line pt-10 text-sm text-revolut-ink/65">
-          <p className="font-medium text-revolut-ink">© Nevolute Inc. 2026</p>
-          <p className="max-w-4xl leading-relaxed">Nevolute Inc.</p>
+          <p className="font-medium text-revolut-ink">© Nevolute Inc. 2026. All rights reserved.</p>
+          <p className="max-w-4xl leading-relaxed">
+            Everyday banking, savings, cards, and payments from Nevolute Inc.
+          </p>
           <ul className="flex flex-wrap gap-x-6 gap-y-2">
-            {[
-              'Website Terms',
-              'Legal Agreements',
-              'Complaints',
-              'Privacy',
-              'UK Modern Slavery Policy',
-              'Admin access',
-            ].map((item) => (
-              <li key={item}>
-                {item === 'Admin access' ? (
-                  <Link to="/admin" className="hover:text-revolut-ink">{item}</Link>
-                ) : (
-                  <a href="#" className="hover:text-revolut-ink">{item}</a>
-                )}
+            {legalLinks.map((item) => (
+              <li key={item.label}>
+                <Link to={item.to} className="hover:text-revolut-ink">
+                  {item.label}
+                </Link>
               </li>
             ))}
           </ul>

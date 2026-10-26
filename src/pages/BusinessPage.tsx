@@ -31,7 +31,7 @@ export function BusinessPage() {
         />
         <Header theme="dark" />
         <div className="relative mx-auto max-w-7xl px-5 lg:px-8">
-          <p className="text-sm font-medium uppercase tracking-wider text-white/50">Revolut Business</p>
+          <p className="text-sm font-medium uppercase tracking-wider text-white/50">Nevolute Inc. Business</p>
           <h1 className="mt-4 max-w-3xl text-5xl font-semibold tracking-tight sm:text-6xl">
             Finance that moves as fast as your business
           </h1>
@@ -41,7 +41,7 @@ export function BusinessPage() {
           </p>
           <div className="mt-10 flex flex-wrap gap-3">
             <Button href="/signup">Open a Business account</Button>
-            <Button variant="ghost" className="border border-white/30" href="#contact">
+            <Button variant="ghost" className="border border-white/30" href="/help">
               Talk to sales
             </Button>
           </div>

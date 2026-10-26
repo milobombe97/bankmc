@@ -55,7 +55,7 @@ export function Header({ theme = 'dark' }: { theme?: 'dark' | 'light' }) {
                   : 'text-revolut-ink'
               }`}
             >
-              Nevolute
+              Nevolute Inc.
             </Link>
 
             <nav
@@ -130,8 +130,8 @@ export function Header({ theme = 'dark' }: { theme?: 'dark' | 'light' }) {
                   Account
                 </Link>
               ) : (
-                <a
-                  href="/signin"
+                <Link
+                  to="/signin"
                   className={`hidden type-label sm:inline ${
                     isDark
                       ? 'text-white/90 hover:text-white group-data-[scrolled=true]:!text-revolut-ink/80 group-data-[scrolled=true]:hover:!text-revolut-ink'
@@ -139,7 +139,7 @@ export function Header({ theme = 'dark' }: { theme?: 'dark' | 'light' }) {
                   }`}
                 >
                   Log in
-                </a>
+                </Link>
               )}
               {!account && (
                 <Button
@@ -224,6 +224,32 @@ export function Header({ theme = 'dark' }: { theme?: 'dark' | 'light' }) {
                 >
                   Admin access
                 </Link>
+                {account ? (
+                  <Link
+                    to="/dashboard"
+                    className="block text-base font-medium"
+                    onClick={() => setMobileOpen(false)}
+                  >
+                    Account
+                  </Link>
+                ) : (
+                  <>
+                    <Link
+                      to="/signin"
+                      className="block text-base font-medium"
+                      onClick={() => setMobileOpen(false)}
+                    >
+                      Log in
+                    </Link>
+                    <Link
+                      to="/signup"
+                      className="block text-base font-medium"
+                      onClick={() => setMobileOpen(false)}
+                    >
+                      Sign up
+                    </Link>
+                  </>
+                )}
               </div>
             </div>
           )}

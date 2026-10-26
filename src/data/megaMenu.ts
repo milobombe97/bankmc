@@ -25,7 +25,7 @@ export type KidsMenuItem = MenuLink
 export const personalMegaMenu: MegaMenuConfig = {
   id: 'personal',
   featured: {
-    title: 'Discover Revolut',
+    title: 'Discover Nevolute Inc.',
     description: 'Banking, savings, cards, and global payments in one app.',
     to: '/',
     imageKey: 'salary',
@@ -45,9 +45,9 @@ export const personalMegaMenu: MegaMenuConfig = {
     {
       title: 'Accounts',
       links: [
-        { label: 'Bank Account', to: '/' },
-        { label: 'Joint Account', to: '/' },
-        { label: 'Professional Account', to: '/' },
+        { label: 'Bank Account', to: '/accounts' },
+        { label: 'Joint Account', to: '/accounts' },
+        { label: 'Professional Account', to: '/accounts' },
         { label: 'Savings Account', to: '/savings' },
       ],
     },
@@ -55,23 +55,23 @@ export const personalMegaMenu: MegaMenuConfig = {
       title: 'Smart Spending',
       links: [
         { label: 'Cards', to: '/cards' },
-        { label: 'Send & Receive', to: '/' },
-        { label: 'Money Management', to: '/' },
-        { label: 'RevPoints', to: '/' },
-        { label: 'Linked Accounts', to: '/' },
-        { label: 'Shops', to: '/' },
+        { label: 'Send & Receive', to: '/transfers' },
+        { label: 'Money Management', to: '/spend' },
+        { label: 'Points', to: '/spend' },
+        { label: 'Linked Accounts', to: '/spend' },
+        { label: 'Shops', to: '/spend' },
       ],
     },
     {
       title: 'Global Finances',
       links: [
-        { label: 'International Transfers', to: '/' },
-        { label: 'Lounges', to: '/' },
-        { label: 'Insurance', to: '/' },
+        { label: 'International Transfers', to: '/transfers' },
+        { label: 'Lounges', to: '/travel' },
+        { label: 'Insurance', to: '/travel' },
       ],
     },
     {
-      title: 'Revolut AI',
+      title: 'Nevolute AI',
       links: [{ label: 'AIR', to: '/air' }],
     },
     {
@@ -96,7 +96,7 @@ export const personalMegaMenu: MegaMenuConfig = {
 export const businessMegaMenu: MegaMenuConfig = {
   id: 'business',
   featured: {
-    title: 'Revolut Business',
+    title: 'Nevolute Inc. Business',
     description: 'Accounts, cards, and payments built for growing companies.',
     to: '/business',
     imageKey: 'menuBusiness',
@@ -126,7 +126,7 @@ export const businessMegaMenu: MegaMenuConfig = {
         { label: 'Accept payments', to: '/business' },
         { label: 'In-person store', to: '/business' },
         { label: 'Online Payments', to: '/business' },
-        { label: 'Revolut Pay', to: '/business' },
+        { label: 'Nevolute Pay', to: '/business' },
       ],
     },
     {
@@ -142,7 +142,7 @@ export const businessMegaMenu: MegaMenuConfig = {
       title: 'Treasury',
       links: [
         { label: 'Savings', to: '/business' },
-        { label: 'Crypto', to: '/business' },
+        { label: 'Crypto', to: '/crypto' },
       ],
     },
     {
@@ -169,7 +169,7 @@ export const companyMegaMenu: MegaMenuConfig = {
     {
       title: 'Company',
       links: [
-        { label: 'About Revolut', to: '/company' },
+        { label: 'About Nevolute Inc.', to: '/company' },
         { label: 'Sustainability', to: '/company' },
         { label: 'Code of Conduct', to: '/company' },
       ],
@@ -177,14 +177,14 @@ export const companyMegaMenu: MegaMenuConfig = {
     {
       title: 'Help',
       links: [
-        { label: 'Contact Us', to: '/company' },
-        { label: 'Help Centre', to: '/company' },
-        { label: 'System Status', to: '/company' },
+        { label: 'Contact Us', to: '/help' },
+        { label: 'Help Centre', to: '/help' },
+        { label: 'System Status', to: '/help' },
       ],
     },
     {
       title: 'Developers',
-      links: [{ label: 'Developers API', to: '/company' }],
+      links: [{ label: 'Developers API', to: '/help' }],
     },
   ],
 }

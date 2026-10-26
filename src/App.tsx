@@ -39,6 +39,7 @@ import { KidsTeensPage } from './pages/sub/KidsTeensPage'
 import { PlansPage } from './pages/sub/PlansPage'
 import { SavingsPage } from './pages/sub/SavingsPage'
 import { SecurityPage } from './pages/sub/SecurityPage'
+import { TopicPage } from './pages/sub/TopicPage'
 
 const storedAccount = loadAccount()
 if (storedAccount?.signedIn && storedAccount.email.toLowerCase() === 'alex.morgan@example.com') {
@@ -68,6 +69,15 @@ export default function App() {
       <Route path="/invest" element={<InvestPage />} />
       <Route path="/security" element={<SecurityPage />} />
       <Route path="/plans" element={<PlansPage />} />
+      <Route path="/accounts" element={<TopicPage topic="accounts" />} />
+      <Route path="/transfers" element={<TopicPage topic="transfers" />} />
+      <Route path="/spend" element={<TopicPage topic="spend" />} />
+      <Route path="/travel" element={<TopicPage topic="travel" />} />
+      <Route path="/crypto" element={<TopicPage topic="crypto" />} />
+      <Route path="/mobile" element={<TopicPage topic="mobile" />} />
+      <Route path="/help" element={<TopicPage topic="help" />} />
+      <Route path="/legal" element={<TopicPage topic="legal" />} />
+      <Route path="/login" element={<Navigate to="/signin" replace />} />
       <Route path="/admin/login" element={<AdminLoginPage />} />
       <Route path="/admin" element={<AdminLayout />}>
         <Route index element={<AdminHome />} />

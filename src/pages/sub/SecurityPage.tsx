@@ -3,7 +3,7 @@ import { MarketingSubPage } from '../MarketingSubPage'
 export function SecurityPage() {
   return (
     <MarketingSubPage
-      eyebrow="Revolut Secure"
+      eyebrow="Nevolute Inc. Secure"
       title="Your money's safe space"
       lead="24/7 protection through proactive, purpose-built defences and specialists who monitor threats — so you can bank with confidence."
       heroTheme="dark"

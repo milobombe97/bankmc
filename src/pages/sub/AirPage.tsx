@@ -3,9 +3,9 @@ import { MarketingSubPage } from '../MarketingSubPage'
 export function AirPage() {
   return (
     <MarketingSubPage
-      eyebrow="Revolut AI"
+      eyebrow="Nevolute AI"
       title="Ask, and AIR makes it happen"
-      lead="AI by Revolut, AIR, is your 24/7 personal assistant. Open your app, swipe, and ask away — from budgets to travel tips."
+      lead="AIR, from Nevolute Inc., is your 24/7 personal assistant. Open your account, swipe, and ask away — from budgets to travel tips."
       bullets={[
         'Natural-language help inside the app',
         'Personalised answers based on your activity',

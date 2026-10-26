@@ -1,4 +1,5 @@
 import { type ComponentProps } from 'react'
+import { Link } from 'react-router-dom'
 
 type Variant = 'primary' | 'secondary' | 'ghost' | 'nav'
 
@@ -28,6 +29,13 @@ export function Button({
   const classes = `${base} ${styles[variant]} ${className}`
 
   if (href) {
+    if (href.startsWith('/')) {
+      return (
+        <Link to={href} className={classes}>
+          {children}
+        </Link>
+      )
+    }
     return (
       <a href={href} className={classes}>
         {children}

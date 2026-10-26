@@ -42,7 +42,7 @@ export function HomePage() {
                 for free in a tap.
               </p>
               <div className="mt-8">
-                <Button href="#download">Download the app</Button>
+                <Button href="/signup">Open an account</Button>
               </div>
             </FadeIn>
 
@@ -57,26 +57,29 @@ export function HomePage() {
                 <p className="mt-1 text-[2.75rem] font-medium leading-none tracking-[-0.04em]">
                   £6,012
                 </p>
-                <span className="mt-3 inline-flex rounded-full bg-white px-5 py-2 text-sm font-medium text-revolut-ink">
+                <Link
+                  to="/accounts"
+                  className="mt-3 inline-flex rounded-full bg-white px-5 py-2 text-sm font-medium text-revolut-ink"
+                >
                   Accounts
-                </span>
+                </Link>
               </div>
             </div>
           </div>
         </div>
       </section>
 
-      <section className="border-b border-revolut-line bg-white py-20 lg:py-28">
+      <section id="salary" className="border-b border-revolut-line bg-white py-20 lg:py-28">
         <div className="mx-auto grid max-w-7xl items-center gap-12 px-5 lg:grid-cols-2 lg:px-8">
           <Reveal>
             <SectionTitle>Your salary, reimagined</SectionTitle>
             <SectionLead className="mt-6 max-w-lg">
               Spend smartly, send quickly, sort your salary automatically, and watch your savings
-              grow — all with a Revolut bank account.
+              grow — all with a Nevolute Inc. account.
             </SectionLead>
             <div className="mt-8 flex flex-wrap gap-3">
-              <Button href="#download">Download the app</Button>
-              <Button variant="secondary" href="#salary">Move your salary</Button>
+              <Button href="/signup">Open an account</Button>
+              <Button variant="secondary" href="/savings">Move your salary</Button>
             </div>
           </Reveal>
           <Reveal delay={0.1}>
@@ -228,7 +231,7 @@ export function HomePage() {
 
       <FeatureBlock
         title="Ask, and AIR makes it happen"
-        body="AI by Revolut, AIR, is your 24/7 personal assistant. Just open your app, swipe, and ask away."
+        body="AIR, from Nevolute Inc., is your 24/7 personal assistant. Just open your account, swipe, and ask away."
         cta="Try it out"
         href="/air"
         tone="light"
@@ -237,7 +240,7 @@ export function HomePage() {
 
       <FeatureBlock
         title="Your money's safe space"
-        body="With Revolut Secure, you're entering the new era of money security — 24/7 protection through proactive defences and a team of specialists."
+        body="With Nevolute Inc. Secure, you're entering the new era of money security — 24/7 protection through proactive defences and a team of specialists."
         cta="Learn more"
         href="/security"
         tone="muted"
@@ -247,7 +250,7 @@ export function HomePage() {
       <FeatureBlock
         title="Explore 5,000+ stocks and ETFs"
         body="From Apple to Zoom, invest in some of the biggest companies in the world, commission-free within your monthly allowance.² Other fees may apply. Capital at risk."
-        cta="Download the app"
+        cta="Explore investing"
         href="/invest"
         tone="light"
         image={images.salary}
@@ -272,7 +275,7 @@ export function HomePage() {
 
       <section className="py-20 text-center lg:py-24">
         <Reveal className="mx-auto max-w-2xl px-5">
-          <SectionTitle>Join the 80+ million using Revolut</SectionTitle>
+          <SectionTitle>Join Nevolute Inc.</SectionTitle>
           <Button className="mt-8" href="/signup">Sign up</Button>
         </Reveal>
       </section>

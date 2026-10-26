@@ -5,7 +5,7 @@ import { Header } from '../components/Header'
 const stats = [
   { value: '80M+', label: 'Customers worldwide' },
   { value: '45+', label: 'Countries and growing' },
-  { value: '10K+', label: 'Revoluters globally' },
+  { value: '10K+', label: 'People at Nevolute Inc.' },
 ]
 
 export function CompanyPage() {
@@ -21,7 +21,7 @@ export function CompanyPage() {
             We&apos;re on a mission to give everyone access to fair, transparent financial products
             — whether you&apos;re saving, spending, travelling, or building a business.
           </p>
-          <Button className="mt-10" href="#careers">View careers</Button>
+          <Button className="mt-10" href="/help">View careers</Button>
         </div>
       </section>
 
@@ -41,18 +41,18 @@ export function CompanyPage() {
           <div>
             <h2 className="text-3xl font-semibold">Our story</h2>
             <p className="mt-6 leading-relaxed text-revolut-ink/70">
-              Revolut started with a simple idea: people should be able to manage all their money in
+              Nevolute Inc. started with a simple idea: people should be able to manage all their money in
               one app, without hidden fees or friction. Today we offer banking, payments, travel,
               crypto, and investing — with the same focus on clarity and control.
             </p>
           </div>
-          <div className="rounded-3xl bg-revolut-ink p-10 text-white">
+          <div id="sustainability" className="rounded-3xl bg-revolut-ink p-10 text-white">
             <h2 className="text-2xl font-semibold">Sustainability &amp; impact</h2>
             <p className="mt-4 text-white/75">
               We publish our progress on carbon, inclusion, and responsible product design — because
               building for the long term means building for everyone.
             </p>
-            <Button className="mt-8" variant="secondary" href="#sustainability">
+            <Button className="mt-8" variant="secondary" href="/help">
               Learn more
             </Button>
           </div>
