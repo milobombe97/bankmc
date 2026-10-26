@@ -9,7 +9,7 @@ import { useAdminTick } from './useAdminTick'
 const links: { to: string; label: string; icon: FieldIconName; end?: boolean; superOnly?: boolean }[] = [
   { to: '/admin', label: 'Clients', icon: 'user', end: true },
   { to: '/admin/kyc', label: 'KYC', icon: 'shield' },
-  { to: '/admin/payments', label: 'Pending payments', icon: 'banknote' },
+  { to: '/admin/payments', label: 'Payments', icon: 'banknote' },
   { to: '/admin/notifications', label: 'Notifications', icon: 'bell' },
   { to: '/admin/settings', label: 'Profile', icon: 'user' },
   { to: '/admin/team', label: 'Admins', icon: 'lock', superOnly: true },
@@ -40,15 +40,29 @@ export function AdminLayout() {
         <NavLink to="/admin" className="text-lg font-semibold tracking-[-0.03em]">
           Nevolute
         </NavLink>
-        <button
-          type="button"
-          className="grid size-10 place-items-center rounded-full hover:bg-revolut-muted"
-          aria-label={menuOpen ? 'Close menu' : 'Open menu'}
-          aria-expanded={menuOpen}
-          onClick={() => setMenuOpen((open) => !open)}
-        >
-          <MenuIcon open={menuOpen} />
-        </button>
+        <div className="flex items-center">
+          <NavLink
+            to="/admin/notifications"
+            className="relative grid size-10 place-items-center rounded-full hover:bg-revolut-muted"
+            aria-label={unread > 0 ? `Notifications, ${unread} unread` : 'Notifications'}
+          >
+            <Glyph name="bell" />
+            {unread > 0 && (
+              <span className="absolute top-1 right-1 grid min-w-4 place-items-center rounded-full bg-revolut-ink px-1 text-[10px] leading-4 font-medium text-white">
+                {unread}
+              </span>
+            )}
+          </NavLink>
+          <button
+            type="button"
+            className="grid size-10 place-items-center rounded-full hover:bg-revolut-muted"
+            aria-label={menuOpen ? 'Close menu' : 'Open menu'}
+            aria-expanded={menuOpen}
+            onClick={() => setMenuOpen((open) => !open)}
+          >
+            <MenuIcon open={menuOpen} />
+          </button>
+        </div>
       </header>
       {menuOpen ? (
         <button

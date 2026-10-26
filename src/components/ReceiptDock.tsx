@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { useAccount } from '../auth/useAccount'
-import { attachReceipt, loadClientTransactions, markReceiptSent, paymentMethodName } from '../data/banking'
+import { attachReceipt, dismissReceipt, loadClientTransactions, markReceiptSent, paymentMethodName } from '../data/banking'
 import { findReceiptFile } from '../data/fileStore'
 import type { StoredFile } from '../data/files'
 import { receiptPreview } from '../data/remote'
@@ -15,12 +15,17 @@ export function ReceiptDock() {
   const clientId = account?.id || ''
   const [tick, setTick] = useState(0)
   const [minimized, setMinimized] = useState(() => (clientId ? localStorage.getItem(dockKey(clientId)) === '1' : false))
-  const pending = useMemo(
-    () => (clientId ? loadClientTransactions(clientId).filter((item) => item.status === 'pending') : []),
+  const notices = useMemo(
+    () =>
+      clientId
+        ? loadClientTransactions(clientId).filter(
+            (item) => item.status === 'pending' || item.status === 'declined' || (item.status === 'approved' && !item.receiptDismissed),
+          )
+        : [],
     [clientId, tick],
   )
   const [files, setFiles] = useState<Record<string, StoredFile>>({})
-  const countRef = useRef(pending.length)
+  const countRef = useRef(notices.length)
 
   useEffect(() => {
     if (!clientId) return
@@ -40,7 +45,7 @@ export function ReceiptDock() {
   useEffect(() => {
     let active = true
     Promise.all(
-      pending.map(async (item) => {
+      notices.map(async (item) => {
         if (item.receiptFile?.dataUrl) return [item.id, item.receiptFile] as const
         if (item.receiptStored) {
           const stored = await findReceiptFile(clientId, item.id)
@@ -63,17 +68,17 @@ export function ReceiptDock() {
     return () => {
       active = false
     }
-  }, [clientId, pending])
+  }, [clientId, notices])
 
   useEffect(() => {
-    if (pending.length > countRef.current) {
+    if (notices.length > countRef.current) {
       setMinimized(false)
       if (clientId) localStorage.setItem(dockKey(clientId), '0')
     }
-    countRef.current = pending.length
-  }, [clientId, pending.length])
+    countRef.current = notices.length
+  }, [clientId, notices.length])
 
-  if (!account?.email || pending.length === 0) return null
+  if (!account?.email || notices.length === 0) return null
 
   function minimize() {
     setMinimized(true)
@@ -86,7 +91,13 @@ export function ReceiptDock() {
   }
 
   if (minimized) {
-    const label = pending.length === 1 ? 'Receipt pending' : `${pending.length} receipts pending`
+    const label = notices.some((item) => item.status === 'declined')
+      ? 'Payment declined'
+      : notices.some((item) => item.status === 'approved')
+        ? 'Payment successful'
+        : notices.length === 1
+          ? 'Receipt pending'
+          : `${notices.length} receipts pending`
     return (
       <button
         type="button"
@@ -102,14 +113,14 @@ export function ReceiptDock() {
     <aside className="fixed right-4 bottom-4 z-50 flex max-h-[min(34rem,calc(100vh-2rem))] w-[min(22rem,calc(100vw-2rem))] flex-col overflow-hidden rounded-2xl border border-revolut-line bg-white shadow-[0_16px_40px_rgba(25,28,31,0.18)]">
       <div className="flex items-center justify-between gap-3 border-b border-revolut-line px-4 py-3">
         <p className="text-sm font-medium">
-          {pending.length === 1 ? 'Receipt' : `${pending.length} receipts`}
+          {notices.length === 1 ? 'Receipt' : `${notices.length} receipts`}
         </p>
         <button type="button" className="text-sm text-revolut-ink/55 hover:text-revolut-ink" onClick={minimize}>
           Minimize
         </button>
       </div>
       <div className="space-y-3 overflow-y-auto p-3">
-        {pending.map((item) => (
+        {notices.map((item) => (
           <DepositNotice
             key={item.id}
             method={paymentMethodName(item)}
@@ -118,8 +129,10 @@ export function ReceiptDock() {
             file={files[item.id]}
             stored={Boolean(item.receiptStored || item.receiptFile?.dataUrl)}
             sent={item.receiptSent}
+            outcome={item.status === 'approved' || item.status === 'declined' ? item.status : 'pending'}
             onUpload={(receiptName) => attachReceipt(item.id, receiptName, clientId)}
             onSend={() => markReceiptSent(item.id, clientId)}
+            onDismiss={() => dismissReceipt(item.id, clientId)}
           />
         ))}
       </div>

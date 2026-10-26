@@ -76,15 +76,29 @@ export function DashboardLayout() {
         <NavLink to="/" className="text-lg font-semibold tracking-[-0.03em]">
           Nevolute
         </NavLink>
-        <button
-          type="button"
-          className="grid size-10 place-items-center rounded-full hover:bg-revolut-muted"
-          aria-label={menuOpen ? 'Close menu' : 'Open menu'}
-          aria-expanded={menuOpen}
-          onClick={() => setMenuOpen((open) => !open)}
-        >
-          <MenuIcon open={menuOpen} />
-        </button>
+        <div className="flex items-center">
+          <NavLink
+            to="/dashboard/notifications"
+            className="relative grid size-10 place-items-center rounded-full hover:bg-revolut-muted"
+            aria-label={unread > 0 ? `Notifications, ${unread} unread` : 'Notifications'}
+          >
+            <DashIcon name="bell" />
+            {unread > 0 && (
+              <span className="absolute top-1 right-1 grid min-w-4 place-items-center rounded-full bg-revolut-ink px-1 text-[10px] leading-4 font-medium text-white">
+                {unread}
+              </span>
+            )}
+          </NavLink>
+          <button
+            type="button"
+            className="grid size-10 place-items-center rounded-full hover:bg-revolut-muted"
+            aria-label={menuOpen ? 'Close menu' : 'Open menu'}
+            aria-expanded={menuOpen}
+            onClick={() => setMenuOpen((open) => !open)}
+          >
+            <MenuIcon open={menuOpen} />
+          </button>
+        </div>
       </header>
       {menuOpen ? (
         <button

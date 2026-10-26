@@ -1,4 +1,5 @@
 import { useState } from 'react'
+import { supportEmail } from '../data/banking'
 import { readStoredFile, type StoredFile } from '../data/files'
 
 export function DepositNotice({
@@ -8,8 +9,10 @@ export function DepositNotice({
   file,
   stored = false,
   sent,
+  outcome = 'pending',
   onUpload,
   onSend,
+  onDismiss,
 }: {
   method: string
   email: string
@@ -17,8 +20,10 @@ export function DepositNotice({
   file?: StoredFile
   stored?: boolean
   sent?: boolean
+  outcome?: 'pending' | 'approved' | 'declined'
   onUpload: (file: StoredFile) => void | Promise<void>
   onSend: () => void
+  onDismiss?: () => void
 }) {
   const [error, setError] = useState('')
   const missingFile = Boolean(receiptName) && !stored
@@ -40,7 +45,23 @@ export function DepositNotice({
         Our support team will send our details for {method} to your email <span className="font-medium text-revolut-ink">{email}</span>.
       </p>
       {file?.dataUrl ? <ReceiptImage file={file} /> : null}
-      {sent && !missingFile ? (
+      {outcome === 'approved' ? (
+        <div className="mt-3">
+          <p className="text-sm font-medium text-emerald-700" role="status">Payment successful</p>
+          <p className="mt-1 text-sm leading-relaxed text-revolut-ink/75">The funds are now in the account.</p>
+          <button type="button" className="mt-3 text-sm font-medium underline-offset-4 hover:underline" onClick={onDismiss}>
+            Dismiss
+          </button>
+        </div>
+      ) : outcome === 'declined' ? (
+        <div className="mt-3">
+          <p className="text-sm font-medium text-red-700" role="status">Payment declined</p>
+          <p className="mt-1 text-sm leading-relaxed text-revolut-ink/75">
+            This payment was rejected. Contact the support team at{' '}
+            <a href={`mailto:${supportEmail}`} className="font-medium text-revolut-ink underline-offset-4 hover:underline">{supportEmail}</a>.
+          </p>
+        </div>
+      ) : sent && !missingFile ? (
         <p className="mt-3 text-sm leading-relaxed text-revolut-ink/75" role="status">
           Receipt has been sent and is pending review and approval. Once approved, the funds will reflect in your account. This can take between 1 and 24 hours.
         </p>

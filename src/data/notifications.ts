@@ -1,5 +1,5 @@
 import type { Account } from '../auth/session'
-import { bankAccounts, formatMoney, paymentMethodName, type Transaction } from './banking'
+import { bankAccounts, formatMoney, paymentMethodName, supportEmail, type Transaction } from './banking'
 
 export type AppNotification = {
   id: string
@@ -52,7 +52,7 @@ export function buildNotifications(account: Account | null, transactions: Transa
     .filter((item) => item.status === 'pending')
     .forEach((item) => {
       const accountName = bankAccounts.find((entry) => entry.id === item.accountId)
-      const money = formatMoney(Math.abs(item.amount), accountName?.currency ?? 'GBP')
+      const money = formatMoney(Math.abs(item.amount), accountName?.currency ?? 'USD')
       const method = paymentMethodName(item)
       items.push({
         id: `pending-${item.id}`,
@@ -67,11 +67,23 @@ export function buildNotifications(account: Account | null, transactions: Transa
             ? `${money} via ${method} has a receipt attached. Send it from the receipt panel.`
             : `${money} via ${method} is waiting for a receipt.`,
         date: item.date,
-        href: item.name.startsWith('Withdrawal')
-          ? '/dashboard/withdraw'
-          : item.amount > 0
-            ? '/dashboard/topup'
-            : '/dashboard/payments',
+        href: `/dashboard/activity/${encodeURIComponent(item.id)}`,
+      })
+    })
+  transactions
+    .filter((item) => item.status === 'approved' || item.status === 'declined')
+    .forEach((item) => {
+      const accountName = bankAccounts.find((entry) => entry.id === item.accountId)
+      const money = formatMoney(Math.abs(item.amount), accountName?.currency ?? 'USD')
+      const declined = item.status === 'declined'
+      items.push({
+        id: `${item.status}-${item.id}`,
+        title: declined ? 'Payment declined' : 'Payment successful',
+        body: declined
+          ? `${money} was declined. Contact the support team at ${supportEmail}.`
+          : `${money} has been added to your account.`,
+        date: item.date,
+        href: `/dashboard/activity/${encodeURIComponent(item.id)}`,
       })
     })
   return items

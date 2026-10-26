@@ -162,7 +162,7 @@ function Bar({ height, className, label }: { height: number; className: string; 
 
 function buildView(transactions: Transaction[], currency: Currency) {
   const matching = transactions.filter(
-    (item) => item.status !== 'pending' && accountCurrency(item.accountId) === currency,
+    (item) => item.status !== 'pending' && item.status !== 'declined' && accountCurrency(item.accountId) === currency,
   )
   const moneyIn = sum(matching.filter((item) => item.amount > 0))
   const moneyOut = Math.abs(sum(matching.filter((item) => item.amount < 0)))

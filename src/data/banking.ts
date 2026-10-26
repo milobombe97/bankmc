@@ -25,13 +25,14 @@ export type Transaction = {
   category: string
   amount: number
   date: string
-  status?: 'pending'
+  status?: 'pending' | 'approved' | 'declined'
   method?: string
   receiptName?: string
   receiptFile?: StoredFile
   receiptStored?: boolean
   receiptPath?: string
   receiptSent?: boolean
+  receiptDismissed?: boolean
 }
 
 export const bankAccounts: BankAccount[] = [
@@ -93,7 +94,7 @@ export const bankAccounts: BankAccount[] = [
 
 const LEDGER_KEY = 'revolut-clone-ledger'
 
-export const defaultAccountId = 'usd'
+export const supportEmail = 'support@nevolute.inc'
 
 export function ledgerKey(clientId = loadAccount()?.id || 'primary') {
   return clientId === 'primary' ? LEDGER_KEY : `${LEDGER_KEY}:${clientId}`
@@ -198,7 +199,9 @@ export function adjustBalance(clientId: string, entry: { accountId: string; name
 export function approvePending(clientId: string, id: string) {
   writeExtra(
     extraTransactions(clientId).map((item) =>
-      item.id === id ? { ...item, status: undefined, category: item.category === 'Pending' ? 'Transfer' : item.category } : item,
+      item.id === id
+        ? { ...item, status: 'approved' as const, category: item.category === 'Pending' ? 'Transfer' : item.category }
+        : item,
     ),
     clientId,
   )
@@ -206,8 +209,16 @@ export function approvePending(clientId: string, id: string) {
 
 export function declinePending(clientId: string, id: string) {
   writeExtra(
-    extraTransactions(clientId).filter((item) => item.id !== id),
+    extraTransactions(clientId).map((item) => (item.id === id ? { ...item, status: 'declined' as const } : item)),
     clientId,
+  )
+}
+
+export function dismissReceipt(id: string, clientId?: string) {
+  const activeId = clientId || loadAccount()?.id || 'primary'
+  writeExtra(
+    extraTransactions(activeId).map((item) => (item.id === id ? { ...item, receiptDismissed: true } : item)),
+    activeId,
   )
 }
 
@@ -268,7 +279,7 @@ export function formatMoney(amount: number, currency: Currency) {
 
 export function accountBalance(account: BankAccount, clientId?: string) {
   const moved = extraTransactions(clientId)
-    .filter((item) => item.accountId === account.id && item.status !== 'pending')
+    .filter((item) => item.accountId === account.id && item.status !== 'pending' && item.status !== 'declined')
     .reduce((sum, item) => sum + item.amount, 0)
   return account.balance + moved
 }

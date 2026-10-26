@@ -6,7 +6,7 @@ import { approvePending, bankAccounts, declinePending, formatMoney, paymentMetho
 import type { StoredFile } from '../../data/files'
 import { findReceiptFile } from '../../data/fileStore'
 import { receiptPreview } from '../../data/remote'
-import { pendingPayments } from './AdminPaymentsPage'
+import { reviewedPayments } from './AdminPaymentsPage'
 import { useAdminTick } from './useAdminTick'
 
 function mimeFromName(name: string) {
@@ -23,7 +23,7 @@ export function AdminPaymentDetail() {
   const navigate = useNavigate()
   const tick = useAdminTick()
   const id = decodeURIComponent(paymentId)
-  const row = pendingPayments().find((item) => item.clientId === clientId && item.item.id === id)
+  const row = reviewedPayments('pending').concat(reviewedPayments('approved'), reviewedPayments('declined')).find((item) => item.clientId === clientId && item.item.id === id)
   const [file, setFile] = useState<StoredFile | undefined>(row?.item.receiptFile)
   void tick
 
@@ -67,7 +67,7 @@ export function AdminPaymentDetail() {
     return (
       <main>
         <h1 className="text-3xl font-medium tracking-[-0.04em]">Payment not found</h1>
-        <Link to="/admin/payments" className="mt-4 inline-block text-sm font-medium hover:underline">Pending payments</Link>
+        <Link to="/admin/payments" className="mt-4 inline-block text-sm font-medium hover:underline">Payments</Link>
       </main>
     )
   }
@@ -82,7 +82,7 @@ export function AdminPaymentDetail() {
 
   return (
     <main className="max-w-5xl space-y-6">
-      <Link to="/admin/payments" className="text-sm font-medium text-revolut-ink/60 hover:text-revolut-ink">Pending payments</Link>
+      <Link to="/admin/payments" className="text-sm font-medium text-revolut-ink/60 hover:text-revolut-ink">Payments</Link>
       <div>
         <p className="text-sm text-revolut-ink/55">{row.clientName}</p>
         <h1 className="mt-1 text-3xl font-medium tracking-[-0.04em]">{row.item.name}</h1>
@@ -98,12 +98,16 @@ export function AdminPaymentDetail() {
         <div><dt className="text-revolut-ink/45">Date</dt><dd>{row.item.date}</dd></div>
         <div><dt className="text-revolut-ink/45">Account</dt><dd>{account?.name ?? row.item.accountId}</dd></div>
         <div><dt className="text-revolut-ink/45">Method</dt><dd>{paymentMethodName(row.item)}</dd></div>
-        <div><dt className="text-revolut-ink/45">Receipt status</dt><dd>{row.item.receiptSent ? 'Sent for review' : row.item.receiptName ? 'Attached, not sent' : 'Not uploaded'}</dd></div>
+        <div><dt className="text-revolut-ink/45">Receipt status</dt><dd>{row.item.status === 'approved' ? 'Approved' : row.item.status === 'declined' ? 'Declined' : row.item.receiptSent ? 'Sent for review' : row.item.receiptName ? 'Attached, not sent' : 'Not uploaded'}</dd></div>
       </dl>
-      <div className="flex flex-wrap gap-2">
-        <Button type="button" onClick={() => decide('approve')}>Approve</Button>
-        <Button type="button" variant="secondary" onClick={() => decide('decline')}>Decline</Button>
-      </div>
+      {row.item.status === 'pending' ? (
+        <div className="flex flex-wrap gap-2">
+          <Button type="button" onClick={() => decide('approve')}>Approve</Button>
+          <Button type="button" variant="secondary" onClick={() => decide('decline')}>Decline</Button>
+        </div>
+      ) : (
+        <p className="text-sm text-revolut-ink/60">{row.item.status === 'approved' ? 'This payment is approved.' : 'This payment is declined.'}</p>
+      )}
     </main>
   )
 }

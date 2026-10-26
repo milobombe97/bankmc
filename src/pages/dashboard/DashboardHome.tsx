@@ -54,27 +54,24 @@ export function DashboardHome() {
           <div className="flex flex-wrap gap-3">
             <Link
               to="/dashboard/topup"
-              className="rounded-full bg-white px-5 py-2.5 text-sm font-medium text-revolut-ink"
+              className="inline-flex items-center gap-2 rounded-full bg-white px-5 py-2.5 text-sm font-medium text-revolut-ink"
             >
+              <ActionIcon name="add" />
               Add money
             </Link>
             <Link
               to="/dashboard/withdraw"
-              className="rounded-full bg-white/10 px-5 py-2.5 text-sm font-medium text-white"
+              className="inline-flex items-center gap-2 rounded-full bg-white/10 px-5 py-2.5 text-sm font-medium text-white"
             >
+              <ActionIcon name="withdraw" />
               Withdraw
             </Link>
             <Link
               to="/dashboard/payments"
-              className="rounded-full bg-white/10 px-5 py-2.5 text-sm font-medium text-white"
+              className="inline-flex items-center gap-2 rounded-full bg-white/10 px-5 py-2.5 text-sm font-medium text-white"
             >
-              Send money
-            </Link>
-            <Link
-              to="/dashboard/cards"
-              className="rounded-full bg-white/10 px-5 py-2.5 text-sm font-medium text-white"
-            >
-              Cards
+              <ActionIcon name="send" />
+              Send
             </Link>
           </div>
         </div>
@@ -247,6 +244,32 @@ function AccountDetails() {
         ))}
       </ul>
     </section>
+  )
+}
+
+function ActionIcon({ name }: { name: 'add' | 'withdraw' | 'send' }) {
+  return (
+    <svg viewBox="0 0 20 20" className="size-4 shrink-0" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
+      {name === 'add' && (
+        <>
+          <circle cx="10" cy="10" r="6.25" />
+          <path d="M10 7.25v5.5M7.25 10h5.5" />
+        </>
+      )}
+      {name === 'withdraw' && (
+        <>
+          <path d="M10 3.5v7.5" />
+          <path d="M7 6.5 10 3.5l3 3" />
+          <path d="M4.5 11.5h11v4.5h-11z" />
+        </>
+      )}
+      {name === 'send' && (
+        <>
+          <path d="M4 10h11.5" />
+          <path d="M12 6.5 15.5 10 12 13.5" />
+        </>
+      )}
+    </svg>
   )
 }
 
@@ -432,18 +455,22 @@ function TransactionRow({ item }: { item: Transaction }) {
           <div className="min-w-0">
             <p className="truncate font-medium">{item.name}</p>
             <p className="text-xs text-revolut-ink/50">
-              {item.status === 'pending'
-                ? item.receiptSent
-                  ? `Pending · in review · ${item.date}`
-                  : item.receiptName
-                    ? `Pending · ready to send · ${item.date}`
-                    : `Pending · receipt needed · ${item.date}`
-                : `${item.category} · ${item.date}`}
+              {item.status === 'declined'
+                ? `Declined · ${item.date}`
+                : item.status === 'approved'
+                  ? `Successful · ${item.date}`
+                  : item.status === 'pending'
+                    ? item.receiptSent
+                      ? `Pending · in review · ${item.date}`
+                      : item.receiptName
+                        ? `Pending · ready to send · ${item.date}`
+                        : `Pending · receipt needed · ${item.date}`
+                    : `${item.category} · ${item.date}`}
             </p>
           </div>
         </div>
-        <p className={`shrink-0 font-medium tabular-nums ${item.status === 'pending' ? 'text-amber-700' : positive ? 'text-emerald-700' : ''}`}>
-          {item.status === 'pending' ? 'Pending ' : positive ? '+' : ''}
+        <p className={`shrink-0 font-medium tabular-nums ${item.status === 'declined' ? 'text-red-700' : item.status === 'pending' ? 'text-amber-700' : positive ? 'text-emerald-700' : ''}`}>
+          {item.status === 'declined' ? 'Declined ' : item.status === 'pending' ? 'Pending ' : positive ? '+' : ''}
           {formatMoney(item.amount, currency)}
         </p>
       </Link>

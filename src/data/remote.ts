@@ -288,7 +288,7 @@ async function pullTransactions(userId?: string) {
       category: row.category,
       amount: Number(row.amount),
       date: row.date,
-      status: row.status === 'pending' ? 'pending' : undefined,
+      status: row.status === 'pending' || row.status === 'approved' || row.status === 'declined' ? row.status : undefined,
       method: row.method ?? undefined,
       receiptName: row.receipt_name ?? undefined,
       receiptPath: row.receipt_path ?? undefined,

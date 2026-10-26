@@ -7,24 +7,51 @@ import { useAdminTick } from './useAdminTick'
 
 export type PendingPayment = { clientId: string; clientName: string; item: Transaction }
 
-export function pendingPayments(): PendingPayment[] {
+export type PaymentFilter = 'pending' | 'approved' | 'declined'
+
+export function reviewedPayments(filter: PaymentFilter = 'pending'): PendingPayment[] {
   return loadClients().flatMap((client) =>
     loadClientTransactions(client.id || 'primary')
-      .filter((item) => item.status === 'pending')
+      .filter((item) => item.status === filter)
       .map((item) => ({ clientId: client.id || 'primary', clientName: `${client.firstName} ${client.lastName}`, item })),
   )
 }
 
+export function pendingPayments(): PendingPayment[] {
+  return reviewedPayments('pending')
+}
+
+const filters: { id: PaymentFilter; label: string }[] = [
+  { id: 'pending', label: 'Pending' },
+  { id: 'approved', label: 'Approved' },
+  { id: 'declined', label: 'Declined' },
+]
+
 export function AdminPaymentsPage() {
   const tick = useAdminTick()
-  const rows = useMemo(() => pendingPayments(), [tick])
+  const [filter, setFilter] = useState<PaymentFilter>('pending')
+  const rows = useMemo(() => reviewedPayments(filter), [tick, filter])
+  const empty = filter === 'pending' ? 'No payments are waiting.' : filter === 'approved' ? 'No payments have been approved.' : 'No payments have been declined.'
 
   return (
     <main className="max-w-5xl">
-      <h1 className="text-3xl font-medium tracking-[-0.04em]">Pending payments</h1>
-      <p className="mt-2 text-sm text-revolut-ink/60">Open a payment to view the receipt before approving it.</p>
+      <h1 className="text-3xl font-medium tracking-[-0.04em]">Payments</h1>
+      <p className="mt-2 text-sm text-revolut-ink/60">Open a payment to view the receipt before deciding it.</p>
+      <div className="mt-5 flex w-fit rounded-full bg-white p-1">
+        {filters.map((item) => (
+          <button
+            key={item.id}
+            type="button"
+            aria-pressed={filter === item.id}
+            className={`rounded-full px-4 py-1.5 text-sm font-medium ${filter === item.id ? 'bg-revolut-ink text-white' : 'text-revolut-ink/60'}`}
+            onClick={() => setFilter(item.id)}
+          >
+            {item.label}
+          </button>
+        ))}
+      </div>
       <ul className="mt-6 overflow-hidden rounded-[1.5rem] bg-white">
-        {rows.length === 0 && <li className="px-5 py-8 text-sm text-revolut-ink/55">No payments are waiting.</li>}
+        {rows.length === 0 && <li className="px-5 py-8 text-sm text-revolut-ink/55">{empty}</li>}
         {rows.map((row) => {
           const account = bankAccounts.find((item) => item.id === row.item.accountId)
           return (

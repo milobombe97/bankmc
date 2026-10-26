@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react'
 import { Link, useParams } from 'react-router-dom'
-import { attachReceipt, bankAccounts, formatMoney, loadTransactions, paymentMethodName } from '../../data/banking'
+import { attachReceipt, bankAccounts, formatMoney, loadTransactions, paymentMethodName, supportEmail } from '../../data/banking'
 import { readStoredFile } from '../../data/files'
 import { loadAccount } from '../../auth/session'
 import { FilePreview } from '../../components/FilePreview'
@@ -68,23 +68,29 @@ export function DashboardTransactionDetail() {
 
   const account = bankAccounts.find((entry) => entry.id === item.accountId)
   const currency = account?.currency ?? 'GBP'
+  const declined = item.status === 'declined'
+  const approved = item.status === 'approved'
   const pending = item.status === 'pending'
   const fileSaved = Boolean(item.receiptStored || item.receiptFile?.dataUrl)
-  const status = !pending
-    ? 'Completed'
-    : item.receiptSent
-      ? 'Pending review'
-      : fileSaved
-        ? 'Receipt ready to send'
-        : 'Receipt needed'
+  const status = declined
+    ? 'Declined'
+    : approved
+      ? 'Successful'
+      : pending
+        ? item.receiptSent
+          ? 'Pending review'
+          : fileSaved
+            ? 'Receipt ready to send'
+            : 'Receipt needed'
+        : 'Completed'
 
   return (
     <main className="max-w-3xl">
       <BackLink to="/dashboard" label="Activity" />
       <p className="mt-4 text-sm text-revolut-ink/55">{item.category}</p>
       <h1 className="mt-1 text-3xl font-medium tracking-[-0.04em]">{item.name}</h1>
-      <p className={`mt-3 text-4xl font-medium tracking-[-0.04em] tabular-nums ${pending ? 'text-amber-700' : item.amount > 0 ? 'text-emerald-700' : ''}`}>
-        {pending ? 'Pending ' : item.amount > 0 ? '+' : ''}
+      <p className={`mt-3 text-4xl font-medium tracking-[-0.04em] tabular-nums ${declined ? 'text-red-700' : pending ? 'text-amber-700' : item.amount > 0 ? 'text-emerald-700' : ''}`}>
+        {declined ? 'Declined ' : pending ? 'Pending ' : item.amount > 0 ? '+' : ''}
         {formatMoney(item.amount, currency)}
       </p>
       <dl className="mt-8 divide-y divide-revolut-line overflow-hidden rounded-[1.5rem] bg-white">
@@ -126,6 +132,13 @@ export function DashboardTransactionDetail() {
             : 'The balance stays unchanged until support approves the receipt.'}
         </p>
       )}
+      {declined && (
+        <p className="mt-4 max-w-xl text-sm text-revolut-ink/70">
+          This payment was rejected. Contact the support team at{' '}
+          <a href={`mailto:${supportEmail}`} className="font-medium underline-offset-4 hover:underline">{supportEmail}</a>.
+        </p>
+      )}
+      {approved && <p className="mt-4 max-w-xl text-sm text-emerald-700">This payment was successful. The funds are in the account.</p>}
     </main>
   )
 }
