@@ -1,0 +1,84 @@
+import { useState } from 'react'
+import { readStoredFile, type StoredFile } from '../data/files'
+
+export function DepositNotice({
+  method,
+  email,
+  receiptName,
+  stored = false,
+  sent,
+  onUpload,
+  onSend,
+}: {
+  method: string
+  email: string
+  receiptName?: string
+  stored?: boolean
+  sent?: boolean
+  onUpload: (file: StoredFile) => void | Promise<void>
+  onSend: () => void
+}) {
+  const [error, setError] = useState('')
+  const missingFile = Boolean(receiptName) && !stored
+
+  async function choose(file?: File) {
+    if (!file) return
+    setError('')
+    try {
+      await onUpload(await readStoredFile(file))
+    } catch {
+      setError('That file could not be saved. Use a photo or a PDF and try again.')
+    }
+  }
+
+  return (
+    <div className="rounded-2xl border border-revolut-line bg-white p-4 shadow-[0_16px_40px_rgba(25,28,31,0.18)]">
+      <p className="text-sm font-medium">Payment details</p>
+      <p className="mt-2 text-sm leading-relaxed text-revolut-ink/75">
+        Our support team will send our details for {method} to your email <span className="font-medium text-revolut-ink">{email}</span>.
+      </p>
+      {sent && !missingFile ? (
+        <p className="mt-3 text-sm leading-relaxed text-revolut-ink/75" role="status">
+          Receipt has been sent and is pending review and approval. Once approved, the funds will reflect in your account. This can take between 1 and 24 hours.
+        </p>
+      ) : (
+        <>
+          <p className="mt-2 text-sm leading-relaxed text-revolut-ink/75">
+            If you have already made your deposit, upload the receipt here.
+          </p>
+          {receiptName && !missingFile ? (
+            <button
+              type="button"
+              className="mt-3 inline-flex rounded-full bg-revolut-ink px-4 py-2 text-sm font-medium text-white"
+              onClick={onSend}
+            >
+              Send
+            </button>
+          ) : (
+            <label className="mt-3 inline-flex cursor-pointer rounded-full bg-revolut-ink px-4 py-2 text-sm font-medium text-white">
+              {missingFile ? 'Upload receipt again' : 'Upload receipt'}
+              <input
+                type="file"
+                accept="image/*,.pdf"
+                className="sr-only"
+                onChange={(event) => {
+                  const file = event.target.files?.[0]
+                  event.target.value = ''
+                  void choose(file)
+                }}
+              />
+            </label>
+          )}
+          {error ? <p className="mt-3 text-xs text-red-600">{error}</p> : null}
+          <p className="mt-3 text-xs leading-relaxed text-revolut-ink/55">
+            {missingFile
+              ? `${receiptName} was not saved. Upload it again so support can open the file.`
+              : receiptName
+                ? `${receiptName} is attached. Send it for review. The balance is not updated yet.`
+                : 'Without a receipt this stays pending. The balance is not updated until support approves the receipt.'}
+          </p>
+        </>
+      )}
+    </div>
+  )
+}

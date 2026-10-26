@@ -1,0 +1,297 @@
+export type Currency = 'GBP' | 'EUR' | 'USD'
+
+export type AccountField = {
+  label: string
+  value: string
+}
+
+export type BankAccount = {
+  id: string
+  name: string
+  currency: Currency
+  balance: number
+  detail: string
+  fields: AccountField[]
+}
+
+export type Transaction = {
+  id: string
+  accountId: string
+  name: string
+  category: string
+  amount: number
+  date: string
+  status?: 'pending'
+  method?: string
+  receiptName?: string
+  receiptFile?: StoredFile
+  receiptStored?: boolean
+  receiptPath?: string
+  receiptSent?: boolean
+}
+
+export const bankAccounts: BankAccount[] = [
+  {
+    id: 'personal',
+    name: 'Personal',
+    currency: 'GBP',
+    balance: 6012.48,
+    detail: 'Sort code 00-99-00',
+    fields: [
+      { label: 'Bank name', value: 'Nevolute Inc.' },
+      { label: 'Sort code', value: '00-99-00' },
+      { label: 'Account number', value: '12345678' },
+      { label: 'IBAN', value: 'GB29 REVO 0099 1234 5678 90' },
+      { label: 'BIC', value: 'REVODMM1' },
+    ],
+  },
+  {
+    id: 'savings',
+    name: 'Savings',
+    currency: 'GBP',
+    balance: 2450.12,
+    detail: '4.00% AER variable',
+    fields: [
+      { label: 'Bank name', value: 'Nevolute Inc.' },
+      { label: 'Sort code', value: '00-99-00' },
+      { label: 'Account number', value: '87654321' },
+      { label: 'IBAN', value: 'GB29 REVO 0099 8765 4321 01' },
+      { label: 'BIC', value: 'REVODMM1' },
+    ],
+  },
+  {
+    id: 'euro',
+    name: 'Euro',
+    currency: 'EUR',
+    balance: 3126,
+    detail: 'EU12 REVO 0099 8765 4321',
+    fields: [
+      { label: 'Bank name', value: 'Nevolute Inc.' },
+      { label: 'IBAN', value: 'EU12 REVO 0099 8765 4321' },
+      { label: 'BIC', value: 'REVODMM1' },
+      { label: 'Account number', value: '87654321' },
+    ],
+  },
+  {
+    id: 'usd',
+    name: 'US Dollar',
+    currency: 'USD',
+    balance: 1840.25,
+    detail: 'Checking · Nevolute Inc.',
+    fields: [
+      { label: 'Bank name', value: 'Nevolute Inc.' },
+      { label: 'Routing number', value: '999999992' },
+      { label: 'Account number', value: '009912340001' },
+      { label: 'Account type', value: 'Checking' },
+    ],
+  },
+]
+
+const seed: Transaction[] = [
+  { id: 't1', accountId: 'personal', name: 'Coffee in Paris', category: 'Eating out', amount: -3.25, date: '2026-10-24' },
+  { id: 't2', accountId: 'personal', name: 'House bills', category: 'Bills', amount: -225, date: '2026-10-24' },
+  { id: 't3', accountId: 'personal', name: 'Salary', category: 'Income', amount: 2450, date: '2026-10-23' },
+  { id: 't4', accountId: 'savings', name: 'Interest', category: 'Savings', amount: 8.14, date: '2026-10-22' },
+  { id: 't5', accountId: 'euro', name: 'Train to Lyon', category: 'Transport', amount: -42.5, date: '2026-10-21' },
+  { id: 't6', accountId: 'personal', name: 'Grocery shop', category: 'Groceries', amount: -54.2, date: '2026-10-20' },
+  { id: 't7', accountId: 'personal', name: 'Refund · jacket', category: 'Shopping', amount: 39, date: '2026-10-18' },
+  { id: 't8', accountId: 'usd', name: 'Bookstore', category: 'Shopping', amount: -18.4, date: '2026-10-19' },
+]
+
+import { loadAccount } from '../auth/session'
+import { receiptFileKey, saveStoredFile } from './fileStore'
+import type { StoredFile } from './files'
+
+const LEDGER_KEY = 'revolut-clone-ledger'
+
+export function ledgerKey(clientId = loadAccount()?.id || 'primary') {
+  return clientId === 'primary' ? LEDGER_KEY : `${LEDGER_KEY}:${clientId}`
+}
+
+export function loadTransactions(): Transaction[] {
+  try {
+    const raw = localStorage.getItem(ledgerKey())
+    if (!raw) return seed
+    const extra = JSON.parse(raw) as Transaction[]
+    return [...extra, ...seed]
+  } catch {
+    return seed
+  }
+}
+
+function extraTransactions(clientId?: string): Transaction[] {
+  try {
+    return JSON.parse(localStorage.getItem(ledgerKey(clientId)) ?? '[]') as Transaction[]
+  } catch {
+    return []
+  }
+}
+
+function writeExtra(entries: Transaction[], clientId?: string) {
+  localStorage.setItem(ledgerKey(clientId), JSON.stringify(entries))
+  window.dispatchEvent(new Event('ledger-changed'))
+  void import('./remote').then((remote) => remote.pushTransactions(clientId, entries))
+}
+
+export function loadClientTransactions(clientId: string) {
+  return [...extraTransactions(clientId), ...seed]
+}
+
+function appendTransaction(entry: Transaction) {
+  writeExtra([entry, ...extraTransactions()])
+  return entry
+}
+
+export function recordPending(entry: Omit<Transaction, 'id' | 'date' | 'status' | 'category'> & { category?: string }) {
+  return appendTransaction({
+    ...entry,
+    id: `pending-${Date.now()}`,
+    date: new Date().toISOString().slice(0, 10),
+    category: entry.category ?? 'Pending',
+    status: 'pending',
+  })
+}
+
+export async function attachReceipt(id: string, receipt: string | StoredFile, clientId?: string) {
+  const activeId = clientId || loadAccount()?.id || 'primary'
+  const receiptName = typeof receipt === 'string' ? receipt : receipt.name
+  let receiptPath: string | undefined
+  if (typeof receipt !== 'string' && receipt.dataUrl) {
+    await saveStoredFile(receiptFileKey(activeId, id), receipt)
+    const remote = await import('./remote')
+    receiptPath = await remote.uploadReceipt(activeId, id, receipt)
+  }
+  const hasBytes = typeof receipt !== 'string' && Boolean(receipt.dataUrl)
+  writeExtra(
+    extraTransactions(activeId).map((item) => {
+      if (item.id !== id) return item
+      const next: Transaction = {
+        ...item,
+        receiptName,
+        receiptStored: hasBytes || item.receiptStored,
+        receiptPath: receiptPath || item.receiptPath,
+      }
+      if (hasBytes) delete next.receiptFile
+      return next
+    }),
+    activeId,
+  )
+}
+
+export function markReceiptSent(id: string, clientId?: string) {
+  writeExtra(
+    extraTransactions(clientId).map((item) => (item.id === id ? { ...item, receiptSent: true } : item)),
+    clientId,
+  )
+}
+
+export function paymentMethodName(item: Transaction) {
+  if (item.method) return item.method
+  if (item.name.startsWith('Top up · ')) return item.name.slice('Top up · '.length)
+  const parts = item.name.split(' · ')
+  return parts.length > 1 ? parts.slice(1).join(' · ') : item.name
+}
+
+export function adjustBalance(clientId: string, entry: { accountId: string; name: string; amount: number; category: string }) {
+  const item: Transaction = {
+    id: `adjust-${Date.now()}`,
+    accountId: entry.accountId,
+    name: entry.name,
+    category: entry.category,
+    amount: entry.amount,
+    date: new Date().toISOString().slice(0, 10),
+  }
+  writeExtra([item, ...extraTransactions(clientId)], clientId)
+  return item
+}
+
+export function approvePending(clientId: string, id: string) {
+  writeExtra(
+    extraTransactions(clientId).map((item) =>
+      item.id === id ? { ...item, status: undefined, category: item.category === 'Pending' ? 'Transfer' : item.category } : item,
+    ),
+    clientId,
+  )
+}
+
+export function declinePending(clientId: string, id: string) {
+  writeExtra(
+    extraTransactions(clientId).filter((item) => item.id !== id),
+    clientId,
+  )
+}
+
+export function recordPayment(payment: Omit<Transaction, 'id' | 'date' | 'category'>) {
+  return appendTransaction({
+    ...payment,
+    id: `pay-${Date.now()}`,
+    date: new Date().toISOString().slice(0, 10),
+    category: 'Transfer',
+  })
+}
+
+export function recordTransfer(transfer: { fromId: string; toId?: string; name: string; amount: number }) {
+  const date = new Date().toISOString().slice(0, 10)
+  const stamp = Date.now()
+  const fromName = bankAccounts.find((account) => account.id === transfer.fromId)?.name ?? 'Account'
+  const outgoing: Transaction = {
+    id: `xfer-${stamp}`,
+    accountId: transfer.fromId,
+    name: transfer.name,
+    category: 'Transfer',
+    amount: -transfer.amount,
+    date,
+  }
+  const entries = [outgoing]
+  if (transfer.toId) {
+    entries.push({
+      id: `xfer-${stamp}-in`,
+      accountId: transfer.toId,
+      name: `From ${fromName}`,
+      category: 'Transfer',
+      amount: transfer.amount,
+      date,
+    })
+  }
+  writeExtra([...entries, ...extraTransactions()])
+  return outgoing
+}
+
+export function recordTopUp(topUp: { accountId: string; method: string; amount: number }) {
+  return appendTransaction({
+    id: `topup-${Date.now()}`,
+    accountId: topUp.accountId,
+    name: `Top up · ${topUp.method}`,
+    category: 'Top up',
+    amount: topUp.amount,
+    date: new Date().toISOString().slice(0, 10),
+  })
+}
+
+export function formatMoney(amount: number, currency: Currency) {
+  return new Intl.NumberFormat('en-GB', {
+    style: 'currency',
+    currency,
+    minimumFractionDigits: 2,
+  }).format(amount)
+}
+
+export function accountBalance(account: BankAccount, clientId?: string) {
+  const moved = extraTransactions(clientId)
+    .filter((item) => item.accountId === account.id && item.status !== 'pending')
+    .reduce((sum, item) => sum + item.amount, 0)
+  return account.balance + moved
+}
+
+export function availableBalance(account: BankAccount, clientId?: string) {
+  const reserved = extraTransactions(clientId)
+    .filter((item) => item.accountId === account.id && item.status === 'pending' && item.amount < 0)
+    .reduce((sum, item) => sum + item.amount, 0)
+  return accountBalance(account) + reserved
+}
+
+export function gbpTotal() {
+  return bankAccounts
+    .filter((account) => account.currency === 'GBP')
+    .reduce((sum, account) => sum + accountBalance(account), 0)
+}

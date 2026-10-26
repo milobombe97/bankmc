@@ -1,0 +1,238 @@
+import { type FormEvent, useEffect, useState } from 'react'
+import { Link, useParams } from 'react-router-dom'
+import { loadClients, updateClient, type Account, type KycStatus } from '../../auth/session'
+import { Button } from '../../components/Button'
+import { AccountMark } from '../../components/Flags'
+import { CountrySelect } from '../../components/CountrySelect'
+import { Field, TextInput } from '../../components/Field'
+import { IconText, PasswordInput } from '../../components/PasswordInput'
+import { SelectMenu } from '../../components/SelectMenu'
+import {
+  accountBalance,
+  adjustBalance,
+  approvePending,
+  bankAccounts,
+  declinePending,
+  formatMoney,
+  loadClientTransactions,
+} from '../../data/banking'
+
+export function AdminClientPage() {
+  const { id = '' } = useParams()
+  const [tick, setTick] = useState(0)
+  const client = loadClients().find((item) => item.id === id)
+
+  useEffect(() => {
+    const sync = () => setTick((value) => value + 1)
+    window.addEventListener('clients-changed', sync)
+    window.addEventListener('account-changed', sync)
+    window.addEventListener('ledger-changed', sync)
+    return () => {
+      window.removeEventListener('clients-changed', sync)
+      window.removeEventListener('account-changed', sync)
+      window.removeEventListener('ledger-changed', sync)
+    }
+  }, [])
+
+  void tick
+
+  if (!client) {
+    return (
+      <main>
+        <h1 className="text-3xl font-medium tracking-[-0.04em]">Client not found</h1>
+        <Link to="/admin" className="mt-4 inline-block text-sm font-medium hover:underline">Clients</Link>
+      </main>
+    )
+  }
+
+  return <ClientEditor key={client.id} client={client} />
+}
+
+function ClientEditor({ client }: { client: Account }) {
+  const [firstName, setFirstName] = useState(client.firstName)
+  const [lastName, setLastName] = useState(client.lastName)
+  const [email, setEmail] = useState(client.email)
+  const [phone, setPhone] = useState(client.phone)
+  const [password, setPassword] = useState('')
+  const [address, setAddress] = useState(client.kyc?.addressLine ?? '')
+  const [city, setCity] = useState(client.kyc?.city ?? '')
+  const [postcode, setPostcode] = useState(client.kyc?.postcode ?? '')
+  const [country, setCountry] = useState(client.kyc?.country ?? '')
+  const [saved, setSaved] = useState('')
+  const [detailError, setDetailError] = useState('')
+  const [accountId, setAccountId] = useState(bankAccounts[0].id)
+  const [amount, setAmount] = useState('')
+  const [moneyError, setMoneyError] = useState('')
+  const pending = loadClientTransactions(client.id || 'primary').filter((item) => item.status === 'pending')
+
+  function saveDetails(event: FormEvent) {
+    event.preventDefault()
+    const nextEmail = email.trim()
+    if (password && password.length < 8) {
+      setDetailError('Use at least 8 characters for the new password.')
+      setSaved('')
+      return
+    }
+    if (loadClients().some((item) => item.id !== client.id && item.email.toLowerCase() === nextEmail.toLowerCase())) {
+      setDetailError('Another client already uses that email.')
+      setSaved('')
+      return
+    }
+    updateClient({
+      ...client,
+      firstName: firstName.trim(),
+      lastName: lastName.trim(),
+      email: nextEmail,
+      phone: phone.trim(),
+      password: password || client.password,
+      kyc: client.kyc
+        ? { ...client.kyc, addressLine: address.trim(), city: city.trim(), postcode: postcode.trim(), country }
+        : client.kyc,
+    })
+    setPassword('')
+    setDetailError('')
+    setSaved(password ? 'Client details and password saved.' : 'Client details saved.')
+  }
+
+  function setKyc(status: KycStatus) {
+    updateClient({ ...client, kycStatus: status })
+  }
+
+  function moveMoney(direction: 'fund' | 'defund') {
+    const value = Number(amount)
+    const bank = bankAccounts.find((item) => item.id === accountId) ?? bankAccounts[0]
+    if (!Number.isFinite(value) || value <= 0) {
+      setMoneyError('Enter an amount greater than zero.')
+      return
+    }
+    const signed = direction === 'defund' ? -value : value
+    if (signed < 0 && accountBalance(bank, client.id) + signed < 0) {
+      setMoneyError('That amount is higher than the posted balance.')
+      return
+    }
+    adjustBalance(client.id || 'primary', {
+      accountId: bank.id,
+      name: direction === 'fund' ? 'Funds added by Nevolute Inc.' : 'Funds removed by Nevolute Inc.',
+      amount: signed,
+      category: direction === 'fund' ? 'Top up' : 'Withdrawal',
+    })
+    setAmount('')
+    setMoneyError('')
+  }
+
+  return (
+    <main className="max-w-5xl space-y-6">
+      <Link to="/admin" className="text-sm font-medium text-revolut-ink/60 hover:text-revolut-ink">Clients</Link>
+      <div className="flex flex-wrap items-end justify-between gap-3">
+        <div>
+          <h1 className="text-3xl font-medium tracking-[-0.04em]">{client.firstName} {client.lastName}</h1>
+          <p className="mt-1 text-sm text-revolut-ink/55">{client.email}</p>
+        </div>
+        <Button
+          variant="secondary"
+          onClick={() => updateClient({ ...client, suspended: !client.suspended })}
+        >
+          {client.suspended ? 'Unsuspend account' : 'Suspend account'}
+        </Button>
+      </div>
+
+      <section className="rounded-[1.5rem] bg-white p-5">
+        <h2 className="text-lg font-medium">Details</h2>
+        <form className="mt-4 grid gap-4 sm:grid-cols-2" onSubmit={saveDetails}>
+          <Field label="First name"><IconText icon="user" required value={firstName} onChange={(event) => setFirstName(event.target.value)} /></Field>
+          <Field label="Last name"><IconText icon="user" required value={lastName} onChange={(event) => setLastName(event.target.value)} /></Field>
+          <Field label="Email"><IconText icon="mail" type="email" required value={email} onChange={(event) => setEmail(event.target.value)} /></Field>
+          <Field label="Phone"><IconText icon="phone" required value={phone} onChange={(event) => setPhone(event.target.value)} /></Field>
+          <Field label="New password" hint="Leave blank to keep the current password." error={detailError || undefined}>
+            <PasswordInput autoComplete="new-password" value={password} onChange={(event) => { setPassword(event.target.value); setDetailError('') }} />
+          </Field>
+          {client.kyc && (
+            <>
+              <Field label="Address"><IconText icon="home" value={address} onChange={(event) => setAddress(event.target.value)} /></Field>
+              <Field label="City"><IconText icon="pin" value={city} onChange={(event) => setCity(event.target.value)} /></Field>
+              <Field label="Postcode"><IconText icon="hash" value={postcode} onChange={(event) => setPostcode(event.target.value)} /></Field>
+              <Field label="Country"><CountrySelect value={country} onChange={setCountry} /></Field>
+            </>
+          )}
+          <div className="sm:col-span-2 flex items-center gap-4">
+            <Button type="submit">Save details</Button>
+            {saved && <p className="text-sm text-revolut-ink/60">{saved}</p>}
+          </div>
+        </form>
+      </section>
+
+      <section className="rounded-[1.5rem] bg-white p-5">
+        <h2 className="text-lg font-medium">Identity check</h2>
+        <p className="mt-1 text-sm capitalize text-revolut-ink/55">{client.kycStatus.replace('_', ' ')}</p>
+        {client.kyc && (
+          <dl className="mt-4 grid gap-2 text-sm sm:grid-cols-2">
+            <div><dt className="text-revolut-ink/45">Document</dt><dd>{client.kyc.documentType.replace('_', ' ')} · {client.kyc.documentNumber}</dd></div>
+            <div><dt className="text-revolut-ink/45">Address</dt><dd>{client.kyc.addressLine}, {client.kyc.city} {client.kyc.postcode}</dd></div>
+          </dl>
+        )}
+        <div className="mt-4 flex flex-wrap gap-2">
+          <Link to={`/admin/kyc/${client.id}`} className="inline-flex items-center rounded-full border border-revolut-line px-4 py-2 text-sm font-medium">View documents</Link>
+          <Button type="button" onClick={() => setKyc('verified')}>Approve KYC</Button>
+          <Button type="button" variant="secondary" onClick={() => setKyc('rejected')}>Disapprove KYC</Button>
+        </div>
+      </section>
+
+      <section className="rounded-[1.5rem] bg-white p-5">
+        <h2 className="text-lg font-medium">Balances</h2>
+        <ul className="mt-4 divide-y divide-revolut-line">
+          {bankAccounts.map((account) => (
+            <li key={account.id} className="flex justify-between py-3 text-sm">
+              <span>{account.name}</span>
+              <span className="font-medium">{formatMoney(accountBalance(account, client.id), account.currency)}</span>
+            </li>
+          ))}
+        </ul>
+        <div className="mt-4 grid gap-4 sm:grid-cols-[1fr_1fr_auto]">
+          <Field label="Account">
+            <SelectMenu
+              value={accountId}
+              onChange={setAccountId}
+              options={bankAccounts.map((account) => ({
+                value: account.id,
+                label: account.name,
+                hint: account.currency,
+                icon: <AccountMark id={account.id} currency={account.currency} />,
+              }))}
+            />
+          </Field>
+          <Field label="Amount" error={moneyError || undefined}>
+            <TextInput inputMode="decimal" placeholder="0.00" value={amount} onChange={(event) => { setAmount(event.target.value); setMoneyError('') }} />
+          </Field>
+          <div className="flex items-end gap-2">
+            <Button type="button" onClick={() => moveMoney('fund')}>Fund</Button>
+            <Button type="button" variant="secondary" onClick={() => moveMoney('defund')}>Defund</Button>
+          </div>
+        </div>
+      </section>
+
+      <section className="rounded-[1.5rem] bg-white p-5">
+        <h2 className="text-lg font-medium">Pending requests</h2>
+        {pending.length === 0 && <p className="mt-3 text-sm text-revolut-ink/55">Nothing is waiting for review.</p>}
+        <ul className="mt-3 divide-y divide-revolut-line">
+          {pending.map((item) => {
+            const bank = bankAccounts.find((account) => account.id === item.accountId)
+            return (
+              <li key={item.id} className="flex flex-wrap items-center justify-between gap-3 py-3 text-sm">
+                <span>
+                  <span className="block font-medium">{item.name}</span>
+                  <span className="text-revolut-ink/55">{item.date}{item.receiptName ? ` · ${item.receiptName}` : ' · No receipt'}</span>
+                </span>
+                <span className="flex items-center gap-2">
+                  <span className="font-medium">{bank ? formatMoney(item.amount, bank.currency) : item.amount}</span>
+                  <Link to={`/admin/payments/${client.id}/${encodeURIComponent(item.id)}`} className="rounded-full border border-revolut-line px-4 py-2 text-sm font-medium">View receipt</Link>
+                  <Button type="button" onClick={() => approvePending(client.id || 'primary', item.id)}>Approve</Button>
+                  <Button type="button" variant="secondary" onClick={() => declinePending(client.id || 'primary', item.id)}>Decline</Button>
+                </span>
+              </li>
+            )
+          })}
+        </ul>
+      </section>
+    </main>
+  )
+}
