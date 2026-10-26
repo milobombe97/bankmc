@@ -1,5 +1,5 @@
 import { useEffect, useId, useRef, useState } from 'react'
-import { dialCodes, flagEmoji, joinPhone, splitPhone } from '../data/dialCodes'
+import { dialCodes, joinPhone, splitPhone } from '../data/dialCodes'
 import { useFieldId } from './Field'
 import { FieldIcon } from './PasswordInput'
 
@@ -66,8 +66,10 @@ export function PhoneInput({
         className="inline-flex shrink-0 items-center gap-1.5 rounded-2xl border border-revolut-line bg-white px-3 py-3 text-sm text-revolut-ink outline-none focus:border-revolut-ink"
         onClick={() => setOpen((current) => !current)}
       >
-        <span aria-hidden className="text-base leading-none">{flagEmoji(selected.iso)}</span>
-        <span>+{selected.dial}</span>
+        <span aria-hidden className="inline-flex items-center gap-1.5">
+          <DialFlag iso={selected.iso} />
+          <span>+{selected.dial}</span>
+        </span>
         <svg viewBox="0 0 20 20" aria-hidden className={`size-4 text-revolut-ink/45 ${open ? 'rotate-180' : ''}`} fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round">
           <path d="M5 7.5 10 12.5 15 7.5" />
         </svg>
@@ -116,9 +118,11 @@ export function PhoneInput({
                     }`}
                     onClick={() => choose(item.iso)}
                   >
-                    <span aria-hidden className="text-base leading-none">{flagEmoji(item.iso)}</span>
                     <span className="min-w-0 flex-1 truncate">{item.name}</span>
-                    <span className={active ? 'text-white/70' : 'text-revolut-ink/50'}>+{item.dial}</span>
+                    <span className={`inline-flex items-center gap-1.5 ${active ? 'text-white/70' : 'text-revolut-ink/50'}`}>
+                      <DialFlag iso={item.iso} />
+                      +{item.dial}
+                    </span>
                   </button>
                 </li>
               )
@@ -127,5 +131,17 @@ export function PhoneInput({
         </div>
       ) : null}
     </div>
+  )
+}
+
+function DialFlag({ iso }: { iso: string }) {
+  return (
+    <img
+      src={`https://flagcdn.com/w40/${iso.toLowerCase()}.png`}
+      alt=""
+      width={20}
+      height={14}
+      className="h-3.5 w-5 rounded-[3px] object-cover"
+    />
   )
 }

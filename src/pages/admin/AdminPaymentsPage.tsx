@@ -1,7 +1,8 @@
-import { useMemo } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import { Link } from 'react-router-dom'
 import { loadClients } from '../../auth/session'
 import { bankAccounts, formatMoney, loadClientTransactions, paymentMethodName, type Transaction } from '../../data/banking'
+import { findReceiptFile } from '../../data/fileStore'
 import { useAdminTick } from './useAdminTick'
 
 export type PendingPayment = { clientId: string; clientName: string; item: Transaction }
@@ -37,6 +38,7 @@ export function AdminPaymentsPage() {
                   <span className="block text-sm text-revolut-ink/55">
                     {row.clientName} · {paymentMethodName(row.item)} · {row.item.receiptFile || row.item.receiptName ? 'Receipt attached' : 'No receipt'}
                   </span>
+                  <ReceiptThumb clientId={row.clientId} transactionId={row.item.id} name={row.item.receiptName} />
                 </span>
                 <span className="text-sm font-medium">{account ? formatMoney(row.item.amount, account.currency) : row.item.amount}</span>
               </Link>
@@ -46,4 +48,23 @@ export function AdminPaymentsPage() {
       </ul>
     </main>
   )
+}
+
+function ReceiptThumb({ clientId, transactionId, name }: { clientId: string; transactionId: string; name?: string }) {
+  const [src, setSrc] = useState('')
+
+  useEffect(() => {
+    let active = true
+    findReceiptFile(clientId, transactionId).then((file) => {
+      if (!active) return
+      const url = file?.dataUrl ?? ''
+      setSrc(url.startsWith('data:image') || file?.type.startsWith('image/') ? url : '')
+    })
+    return () => {
+      active = false
+    }
+  }, [clientId, transactionId])
+
+  if (!src) return null
+  return <img src={src} alt={name || 'Receipt'} className="mt-2 h-16 w-16 rounded-lg object-cover" />
 }

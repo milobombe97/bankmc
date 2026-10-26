@@ -1,6 +1,9 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { useAccount } from '../auth/useAccount'
 import { attachReceipt, loadClientTransactions, markReceiptSent, paymentMethodName } from '../data/banking'
+import { findReceiptFile } from '../data/fileStore'
+import type { StoredFile } from '../data/files'
+import { receiptPreview } from '../data/remote'
 import { DepositNotice } from './DepositNotice'
 
 function dockKey(clientId: string) {
@@ -16,6 +19,7 @@ export function ReceiptDock() {
     () => (clientId ? loadClientTransactions(clientId).filter((item) => item.status === 'pending') : []),
     [clientId, tick],
   )
+  const [files, setFiles] = useState<Record<string, StoredFile>>({})
   const countRef = useRef(pending.length)
 
   useEffect(() => {
@@ -32,6 +36,34 @@ export function ReceiptDock() {
       window.removeEventListener('account-changed', sync)
     }
   }, [])
+
+  useEffect(() => {
+    let active = true
+    Promise.all(
+      pending.map(async (item) => {
+        if (item.receiptFile?.dataUrl) return [item.id, item.receiptFile] as const
+        if (item.receiptStored) {
+          const stored = await findReceiptFile(clientId, item.id)
+          if (stored?.dataUrl) return [item.id, stored] as const
+        }
+        if (item.receiptPath) {
+          const preview = await receiptPreview(item.receiptPath, item.receiptName || 'Receipt', 'image/jpeg')
+          if (preview) return [item.id, preview] as const
+        }
+        return null
+      }),
+    ).then((rows) => {
+      if (!active) return
+      const next: Record<string, StoredFile> = {}
+      for (const row of rows) {
+        if (row) next[row[0]] = row[1]
+      }
+      setFiles(next)
+    })
+    return () => {
+      active = false
+    }
+  }, [clientId, pending])
 
   useEffect(() => {
     if (pending.length > countRef.current) {
@@ -83,6 +115,7 @@ export function ReceiptDock() {
             method={paymentMethodName(item)}
             email={account.email}
             receiptName={item.receiptName}
+            file={files[item.id]}
             stored={Boolean(item.receiptStored || item.receiptFile?.dataUrl)}
             sent={item.receiptSent}
             onUpload={(receiptName) => attachReceipt(item.id, receiptName, clientId)}

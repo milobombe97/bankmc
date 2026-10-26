@@ -5,6 +5,7 @@ export function DepositNotice({
   method,
   email,
   receiptName,
+  file,
   stored = false,
   sent,
   onUpload,
@@ -13,6 +14,7 @@ export function DepositNotice({
   method: string
   email: string
   receiptName?: string
+  file?: StoredFile
   stored?: boolean
   sent?: boolean
   onUpload: (file: StoredFile) => void | Promise<void>
@@ -37,6 +39,7 @@ export function DepositNotice({
       <p className="mt-2 text-sm leading-relaxed text-revolut-ink/75">
         Our support team will send our details for {method} to your email <span className="font-medium text-revolut-ink">{email}</span>.
       </p>
+      {file?.dataUrl ? <ReceiptImage file={file} /> : null}
       {sent && !missingFile ? (
         <p className="mt-3 text-sm leading-relaxed text-revolut-ink/75" role="status">
           Receipt has been sent and is pending review and approval. Once approved, the funds will reflect in your account. This can take between 1 and 24 hours.
@@ -80,5 +83,21 @@ export function DepositNotice({
         </>
       )}
     </div>
+  )
+}
+
+function ReceiptImage({ file }: { file: StoredFile }) {
+  const image = file.type.startsWith('image/') || file.dataUrl.startsWith('data:image/')
+  const pdf = file.type === 'application/pdf' || file.dataUrl.startsWith('data:application/pdf')
+  if (image) {
+    return <img src={file.dataUrl} alt={file.name} className="mt-3 max-h-40 w-full rounded-xl bg-revolut-muted object-contain" />
+  }
+  if (pdf) {
+    return <iframe title={file.name} src={file.dataUrl} className="mt-3 h-40 w-full rounded-xl bg-white" />
+  }
+  return (
+    <a href={file.dataUrl} target="_blank" rel="noreferrer" className="mt-3 inline-block text-sm font-medium hover:underline">
+      Open {file.name}
+    </a>
   )
 }

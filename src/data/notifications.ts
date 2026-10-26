@@ -11,30 +11,6 @@ export type AppNotification = {
 
 const READ_KEY = 'revolut-clone-notifications-read'
 
-const history: AppNotification[] = [
-  {
-    id: 'salary-oct',
-    title: 'Salary received',
-    body: '£2,450.00 arrived in Personal.',
-    date: '2026-10-23',
-    href: '/dashboard',
-  },
-  {
-    id: 'cashback-oct',
-    title: 'Cash back this month',
-    body: '1% back on card spend is available this month.',
-    date: '2026-10-26',
-    href: '/dashboard',
-  },
-  {
-    id: 'card-ready',
-    title: 'Card is ready',
-    body: 'Your Nevolute Inc. card can be viewed under Cards.',
-    date: '2026-10-18',
-    href: '/dashboard/cards',
-  },
-]
-
 export function loadReadIds() {
   try {
     const raw = JSON.parse(localStorage.getItem(READ_KEY) ?? '[]') as string[]
@@ -98,5 +74,5 @@ export function buildNotifications(account: Account | null, transactions: Transa
             : '/dashboard/payments',
       })
     })
-  return [...items, ...history]
+  return items
 }

@@ -68,7 +68,7 @@ export function SignUpPage() {
     const existing = loadAccount()
     const editing = existing?.signedIn && existing.kycStatus === 'not_started'
     const next = {
-      ...(editing ? existing : {}),
+      ...(editing ? existing : { id: `client-${Date.now()}` }),
       firstName: form.firstName.trim(),
       lastName: form.lastName.trim(),
       email: form.email.trim(),

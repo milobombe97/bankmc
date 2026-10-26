@@ -2,6 +2,7 @@ import { adoptRemoteAdmin, type AdminUser } from '../auth/admins'
 import { saveAccount, saveClients, type Account, type KycStatus } from '../auth/session'
 import { ledgerKey, type Transaction } from './banking'
 import type { StoredFile } from './files'
+import { kycFileKey, saveStoredFile } from './fileStore'
 import { supabase } from '../lib/supabase'
 
 type ProfileRow = {
@@ -50,6 +51,14 @@ function accountFromProfile(row: ProfileRow, email: string, signedIn: boolean): 
 }
 
 function profilePatch(account: Account) {
+  const kyc = account.kyc
+  const storedKyc = kyc
+    ? {
+        ...kyc,
+        documentFile: undefined,
+        documentBackFile: undefined,
+      }
+    : null
   return {
     first_name: account.firstName,
     last_name: account.lastName,
@@ -57,7 +66,7 @@ function profilePatch(account: Account) {
     email: account.email,
     suspended: Boolean(account.suspended),
     kyc_status: account.kycStatus,
-    kyc: account.kyc ?? null,
+    kyc: storedKyc,
     settings: account.settings ?? null,
   }
 }
@@ -204,6 +213,55 @@ export async function uploadReceipt(clientId: string, transactionId: string, fil
     contentType: file.type || blob.type,
   })
   return error ? undefined : path
+}
+
+export async function storeKycDocuments(clientId: string, kyc: Account['kyc']) {
+  if (!kyc) return kyc
+  const next = { ...kyc }
+  const front = await keepKycSide(clientId, 'front', kyc.documentFile)
+  const back = await keepKycSide(clientId, 'back', kyc.documentBackFile)
+  if (front.stored) {
+    next.documentStored = true
+    next.documentPath = front.path || kyc.documentPath
+    delete next.documentFile
+  }
+  if (back.stored) {
+    next.documentBackStored = true
+    next.documentBackPath = back.path || kyc.documentBackPath
+    delete next.documentBackFile
+  }
+  return next
+}
+
+async function keepKycSide(clientId: string, side: 'front' | 'back', file?: StoredFile) {
+  if (!file?.dataUrl) return { stored: false as const }
+  await saveStoredFile(kycFileKey(clientId, side), file)
+  const path = await uploadKyc(clientId, side, file)
+  return { stored: true as const, path }
+}
+
+async function uploadKyc(clientId: string, side: 'front' | 'back', file: StoredFile) {
+  if (!supabase || !file.dataUrl) return undefined
+  const { data } = await supabase.auth.getUser()
+  if (!data.user) return undefined
+  const owner = clientId && clientId !== 'primary' ? clientId : data.user.id
+  if (owner !== data.user.id) return undefined
+  const path = `${data.user.id}/${side}`
+  const response = await fetch(file.dataUrl)
+  const blob = await response.blob()
+  const { error } = await supabase.storage.from('kyc').upload(path, blob, {
+    upsert: true,
+    contentType: file.type || blob.type,
+  })
+  return error ? undefined : path
+}
+
+export async function kycPreview(path: string, name: string, type: string) {
+  if (!supabase) return null
+  const { data, error } = await supabase.storage.from('kyc').createSignedUrl(path, 60 * 30)
+  if (error || !data?.signedUrl) return null
+  const file: StoredFile = { name, type: type || 'image/jpeg', dataUrl: data.signedUrl }
+  return file
 }
 
 export async function receiptPreview(path: string, name: string, type: string) {

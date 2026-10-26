@@ -4,7 +4,7 @@ import { Button } from '../../components/Button'
 import { FilePreview } from '../../components/FilePreview'
 import { approvePending, bankAccounts, declinePending, formatMoney, paymentMethodName } from '../../data/banking'
 import type { StoredFile } from '../../data/files'
-import { loadStoredFile, receiptFileKey } from '../../data/fileStore'
+import { findReceiptFile } from '../../data/fileStore'
 import { receiptPreview } from '../../data/remote'
 import { pendingPayments } from './AdminPaymentsPage'
 import { useAdminTick } from './useAdminTick'
@@ -45,7 +45,7 @@ export function AdminPaymentDetail() {
       return
     }
     let active = true
-    loadStoredFile(receiptFileKey(clientId, txId)).then(async (stored) => {
+    findReceiptFile(clientId, txId).then(async (stored) => {
       if (!active) return
       if (stored?.dataUrl) {
         setFile(stored)

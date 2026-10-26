@@ -2,6 +2,7 @@ import { type FormEvent, useState } from 'react'
 import { readStoredFile, type StoredFile } from '../../data/files'
 import { Navigate, useNavigate } from 'react-router-dom'
 import { loadAccount, saveAccount, type KycProfile } from '../../auth/session'
+import { storeKycDocuments } from '../../data/remote'
 import { Button } from '../../components/Button'
 import { CountrySelect } from '../../components/CountrySelect'
 import { Field } from '../../components/Field'
@@ -55,7 +56,7 @@ export function KycPage() {
     setError('')
   }
 
-  function next(event: FormEvent) {
+  async function next(event: FormEvent) {
     event.preventDefault()
     if (step === 0) {
       if (form.legalFirstName.trim().length < 2 || form.legalLastName.trim().length < 2) {
@@ -78,11 +79,11 @@ export function KycPage() {
       }
       if (form.documentType === 'passport') {
         if (!form.documentFileName) {
-          setError('Upload the biography page of your passport. It stays on this device.')
+          setError('Upload the biography page of your passport.')
           return
         }
       } else if (!form.documentFileName || !form.documentBackFileName) {
-        setError('Upload the front and the back. They stay on this device.')
+        setError('Upload the front and the back.')
         return
       }
     }
@@ -91,19 +92,32 @@ export function KycPage() {
         setError('Enter your full home address.')
         return
       }
-      saveAccount({
-        ...account!,
-        kyc: form,
-        kycStatus: 'in_review',
-      })
+      try {
+        const kyc = await storeKycDocuments(account!.id || 'primary', form)
+        saveAccount({
+          ...account!,
+          kyc: kyc ? { ...kyc, rejectionReason: undefined } : kyc,
+          kycStatus: 'in_review',
+        })
+      } catch {
+        setError('The identity photos could not be saved. Use a photo or a PDF and try again.')
+        return
+      }
       navigate('/dashboard')
       return
     }
     setStep((current) => current + 1)
   }
 
-  function goBack() {
-    saveAccount({ ...account!, kyc: form, kycStatus: 'not_started' })
+  async function goBack() {
+    try {
+      const kyc = await storeKycDocuments(account!.id || 'primary', form)
+      saveAccount({ ...account!, kyc, kycStatus: 'not_started' })
+      setForm(kyc ?? form)
+    } catch {
+      setError('The identity photos could not be saved. Use a photo or a PDF and try again.')
+      return
+    }
     if (step === 0) {
       navigate('/signup')
       return
@@ -114,11 +128,17 @@ export function KycPage() {
   return (
     <AuthLayout
       title={steps[step]}
-      subtitle="Banks use these details to confirm you are who you say you are. Upload a real document only if you are comfortable keeping it in this browser."
+      subtitle="Banks use these details to confirm you are who you say you are."
       step={{ current: step + 2, total: 4, label: 'Identity check' }}
       onBack={goBack}
     >
       <form className="space-y-4" onSubmit={next}>
+        {account.kycStatus === 'rejected' && (
+          <div className="rounded-2xl bg-red-50 px-4 py-3 text-sm text-red-950">
+            <p className="font-medium">This identity check was declined</p>
+            <p className="mt-1">{account.kyc?.rejectionReason || 'Update the details and submit it again.'}</p>
+          </div>
+        )}
         {step === 0 && (
           <>
             <div className="grid gap-4 sm:grid-cols-2">

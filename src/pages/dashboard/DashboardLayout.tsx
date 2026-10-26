@@ -147,10 +147,11 @@ export function DashboardLayout() {
           </p>
         )}
         {account.kycStatus === 'rejected' && (
-          <p className="bg-red-50 px-5 py-3 text-sm text-red-950 lg:px-8">
-            Identity check was declined.{' '}
-            <Link to="/kyc" className="font-medium underline">Submit it again</Link>
-          </p>
+          <div className="bg-red-50 px-5 py-3 text-sm text-red-950 lg:px-8">
+            <p>Identity check was declined.</p>
+            {account.kyc?.rejectionReason ? <p className="mt-1">{account.kyc.rejectionReason}</p> : null}
+            <Link to="/kyc" className="mt-2 inline-block font-medium underline">Resubmit identity check</Link>
+          </div>
         )}
         <div className="flex-1 px-5 py-6 lg:px-8 lg:py-8">
           <Outlet />

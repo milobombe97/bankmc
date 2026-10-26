@@ -1,11 +1,21 @@
 import type { StoredFile } from '../data/files'
 
-export function FilePreview({ file, fallbackName }: { file?: StoredFile; fallbackName?: string }) {
+export function FilePreview({
+  file,
+  fallbackName,
+  missing,
+}: {
+  file?: StoredFile
+  fallbackName?: string
+  missing?: string
+}) {
   const name = file?.name || fallbackName
   if (!file?.dataUrl) {
     return (
       <div className="rounded-2xl border border-dashed border-revolut-line bg-revolut-muted/50 px-4 py-8 text-sm text-revolut-ink/60">
-        {name ? `${name} is listed, but the file was not saved. Upload it again from the client dashboard.` : 'No file uploaded.'}
+        {name
+          ? `${name} is listed, but the file was not saved. ${missing || 'Upload it again from the client dashboard.'}`
+          : 'No file uploaded.'}
       </div>
     )
   }

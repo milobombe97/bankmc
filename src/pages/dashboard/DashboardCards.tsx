@@ -15,7 +15,7 @@ export function DashboardCards() {
   const [contactless, setContactless] = useState(true)
   const [copied, setCopied] = useState('')
 
-  const holder = account ? `${account.firstName} ${account.lastName}` : 'Alex Morgan'
+  const holder = account ? `${account.firstName} ${account.lastName}` : 'Cardholder'
   const personal = bankAccounts.find((item) => item.id === 'personal') ?? bankAccounts[0]
   const spends = useMemo(
     () =>

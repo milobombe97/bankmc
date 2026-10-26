@@ -13,7 +13,7 @@ import { SelectMenu } from '../../components/SelectMenu'
 export function DashboardPayments() {
   const profile = useAccount()
   const [country, setCountry] = useState(profile?.kyc?.country || 'United Kingdom')
-  const [from, setFrom] = useState('personal')
+  const [from, setFrom] = useState('usd')
   const [recipient, setRecipient] = useState('')
   const [method, setMethod] = useState(() => keepMethod(country, 'fps'))
   const [amount, setAmount] = useState('')

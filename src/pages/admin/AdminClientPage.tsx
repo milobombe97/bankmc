@@ -1,6 +1,6 @@
 import { type FormEvent, useEffect, useState } from 'react'
 import { Link, useParams } from 'react-router-dom'
-import { loadClients, updateClient, type Account, type KycStatus } from '../../auth/session'
+import { loadClients, updateClient, type Account } from '../../auth/session'
 import { Button } from '../../components/Button'
 import { AccountMark } from '../../components/Flags'
 import { CountrySelect } from '../../components/CountrySelect'
@@ -60,10 +60,14 @@ function ClientEditor({ client }: { client: Account }) {
   const [country, setCountry] = useState(client.kyc?.country ?? '')
   const [saved, setSaved] = useState('')
   const [detailError, setDetailError] = useState('')
-  const [accountId, setAccountId] = useState(bankAccounts[0].id)
+  const [accountId, setAccountId] = useState('usd')
   const [amount, setAmount] = useState('')
   const [moneyError, setMoneyError] = useState('')
+  const [rejecting, setRejecting] = useState(false)
+  const [reason, setReason] = useState('')
+  const [reasonError, setReasonError] = useState('')
   const pending = loadClientTransactions(client.id || 'primary').filter((item) => item.status === 'pending')
+  const approved = client.kycStatus === 'verified'
 
   function saveDetails(event: FormEvent) {
     event.preventDefault()
@@ -92,10 +96,6 @@ function ClientEditor({ client }: { client: Account }) {
     setPassword('')
     setDetailError('')
     setSaved(password ? 'Client details and password saved.' : 'Client details saved.')
-  }
-
-  function setKyc(status: KycStatus) {
-    updateClient({ ...client, kycStatus: status })
   }
 
   function moveMoney(direction: 'fund' | 'defund') {
@@ -170,10 +170,53 @@ function ClientEditor({ client }: { client: Account }) {
             <div><dt className="text-revolut-ink/45">Address</dt><dd>{client.kyc.addressLine}, {client.kyc.city} {client.kyc.postcode}</dd></div>
           </dl>
         )}
-        <div className="mt-4 flex flex-wrap gap-2">
-          <Link to={`/admin/kyc/${client.id}`} className="inline-flex items-center rounded-full border border-revolut-line px-4 py-2 text-sm font-medium">View documents</Link>
-          <Button type="button" onClick={() => setKyc('verified')}>Approve KYC</Button>
-          <Button type="button" variant="secondary" onClick={() => setKyc('rejected')}>Disapprove KYC</Button>
+        <div className="mt-4 space-y-3">
+          <div className="flex flex-wrap gap-2">
+            <Link to={`/admin/kyc/${client.id}`} className="inline-flex items-center rounded-full border border-revolut-line px-4 py-2 text-sm font-medium">View documents</Link>
+            <Button type="button" onClick={() => updateClient({ ...client, kycStatus: 'verified', kyc: client.kyc ? { ...client.kyc, rejectionReason: undefined } : client.kyc })} disabled={approved} className="disabled:cursor-default disabled:opacity-60">
+              {approved ? 'Approved' : 'Approve KYC'}
+            </Button>
+            {client.kycStatus !== 'rejected' && (
+              <Button type="button" variant="secondary" onClick={() => setRejecting((current) => !current)}>Disapprove KYC</Button>
+            )}
+          </div>
+          {rejecting && !approved && (
+            <div className="max-w-xl space-y-3">
+              <label className="block text-sm font-medium" htmlFor="client-kyc-reason">Reason for rejection</label>
+              <textarea
+                id="client-kyc-reason"
+                value={reason}
+                rows={3}
+                className="w-full rounded-2xl border border-revolut-line px-4 py-3 text-sm outline-none focus:border-revolut-ink"
+                placeholder="Tell the client what to correct"
+                onChange={(event) => {
+                  setReason(event.target.value)
+                  setReasonError('')
+                }}
+              />
+              {reasonError ? <p className="text-sm text-red-600">{reasonError}</p> : null}
+              <Button
+                type="button"
+                variant="secondary"
+                onClick={() => {
+                  if (!reason.trim()) {
+                    setReasonError('Enter the reason for rejection.')
+                    return
+                  }
+                  updateClient({
+                    ...client,
+                    kycStatus: 'rejected',
+                    kyc: client.kyc ? { ...client.kyc, rejectionReason: reason.trim() } : client.kyc,
+                  })
+                }}
+              >
+                Send rejection
+              </Button>
+            </div>
+          )}
+          {client.kycStatus === 'rejected' && client.kyc?.rejectionReason ? (
+            <p className="text-sm text-revolut-ink/70">Rejected: {client.kyc.rejectionReason}</p>
+          ) : null}
         </div>
       </section>
 

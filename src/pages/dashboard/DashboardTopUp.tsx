@@ -15,7 +15,7 @@ const maxAmount = 10_000
 export function DashboardTopUp() {
   const profile = useAccount()
   const country = residenceCountry(profile?.kyc?.country)
-  const [accountId, setAccountId] = useState('personal')
+  const [accountId, setAccountId] = useState('usd')
   const [method, setMethod] = useState(() => keepMethod(country, 'bank'))
   const [coin, setCoin] = useState<(typeof coins)[number]>('USDC')
   const [payer, setPayer] = useState('')

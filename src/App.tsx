@@ -1,5 +1,6 @@
 import { useEffect } from 'react'
 import { Navigate, Route, Routes } from 'react-router-dom'
+import { loadAccount, saveAccount } from './auth/session'
 import { restoreSupabaseSession } from './data/remote'
 import { BusinessPage } from './pages/BusinessPage'
 import { CompanyPage } from './pages/CompanyPage'
@@ -39,9 +40,20 @@ import { PlansPage } from './pages/sub/PlansPage'
 import { SavingsPage } from './pages/sub/SavingsPage'
 import { SecurityPage } from './pages/sub/SecurityPage'
 
+const storedAccount = loadAccount()
+if (storedAccount?.signedIn && storedAccount.email.toLowerCase() === 'alex.morgan@example.com') {
+  saveAccount({ ...storedAccount, signedIn: false })
+}
+
 export default function App() {
   useEffect(() => {
-    void restoreSupabaseSession()
+    void (async () => {
+      await restoreSupabaseSession()
+      const account = loadAccount()
+      if (account?.signedIn && account.email.toLowerCase() === 'alex.morgan@example.com') {
+        saveAccount({ ...account, signedIn: false })
+      }
+    })()
   }, [])
 
   return (

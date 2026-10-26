@@ -3,7 +3,7 @@ import { CurrencyFlag } from '../../components/Flags'
 import { accountBalance, bankAccounts, formatMoney, type Currency, type Transaction } from '../../data/banking'
 
 export function DashboardAnalytics({ transactions }: { transactions: Transaction[] }) {
-  const [currency, setCurrency] = useState<Currency>('GBP')
+  const [currency, setCurrency] = useState<Currency>('USD')
 
   const view = useMemo(() => buildView(transactions, currency), [transactions, currency])
 
@@ -12,7 +12,7 @@ export function DashboardAnalytics({ transactions }: { transactions: Transaction
       <div className="flex flex-wrap items-end justify-between gap-3">
         <div>
           <h2 className="text-xl font-medium tracking-[-0.03em]">Analytics</h2>
-          <p className="mt-1 text-sm text-revolut-ink/55">From activity stored in this browser.</p>
+          <p className="mt-1 text-sm text-revolut-ink/55">From this account's activity.</p>
         </div>
         <div className="flex rounded-full bg-white p-1">
           {(['GBP', 'EUR', 'USD'] as const).map((item) => (

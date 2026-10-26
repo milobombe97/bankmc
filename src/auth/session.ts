@@ -14,8 +14,13 @@ export type KycProfile = {
   documentExpiry: string
   documentFileName: string
   documentFile?: StoredFile
+  documentPath?: string
+  documentStored?: boolean
   documentBackFileName?: string
   documentBackFile?: StoredFile
+  documentBackPath?: string
+  documentBackStored?: boolean
+  rejectionReason?: string
   addressLine: string
   city: string
   postcode: string

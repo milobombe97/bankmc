@@ -15,7 +15,6 @@ import {
   availableBalance,
   bankAccounts,
   formatMoney,
-  gbpTotal,
   loadTransactions,
   recordPending,
   recordTransfer,
@@ -49,8 +48,8 @@ export function DashboardHome() {
       <section className="space-y-4">
         <div className="flex flex-col gap-6 rounded-[1.75rem] bg-revolut-ink p-6 text-white sm:flex-row sm:items-end sm:justify-between">
           <div>
-            <p className="text-sm text-white/60">Total in GBP</p>
-            <p className="mt-2 text-5xl font-medium tracking-[-0.045em]">{formatMoney(gbpTotal(), 'GBP')}</p>
+            <p className="text-sm text-white/60">Total in USD</p>
+            <p className="mt-2 text-5xl font-medium tracking-[-0.045em]">{formatMoney(accountBalance(bankAccounts.find((item) => item.id === 'usd') ?? bankAccounts[0]), 'USD')}</p>
           </div>
           <div className="flex flex-wrap gap-3">
             <Link
@@ -254,8 +253,8 @@ function AccountDetails() {
 function QuickTransfer({ onDone }: { onDone: () => void }) {
   const profile = useAccount()
   const [country, setCountry] = useState(profile?.kyc?.country || 'United Kingdom')
-  const [fromId, setFromId] = useState('personal')
-  const [toId, setToId] = useState('savings')
+  const [fromId, setFromId] = useState('usd')
+  const [toId, setToId] = useState('external')
   const [recipient, setRecipient] = useState('')
   const [method, setMethod] = useState(() => keepMethod(country, 'fps'))
   const [amount, setAmount] = useState('')

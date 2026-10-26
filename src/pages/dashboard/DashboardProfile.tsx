@@ -50,6 +50,13 @@ export function DashboardProfile() {
           </>
         )}
       </dl>
+      {account.kycStatus === 'rejected' && (
+        <div className="mt-4 rounded-[1.5rem] bg-red-50 px-5 py-4 text-sm text-red-950">
+          <p className="font-medium">Identity check was declined</p>
+          {account.kyc?.rejectionReason ? <p className="mt-1">{account.kyc.rejectionReason}</p> : null}
+          <Link to="/kyc" className="mt-3 inline-flex rounded-full bg-revolut-ink px-4 py-2 text-sm font-medium text-white">Resubmit identity check</Link>
+        </div>
+      )}
       <div className="mt-6 flex flex-wrap gap-3">
         <Link
           to="/dashboard/settings"

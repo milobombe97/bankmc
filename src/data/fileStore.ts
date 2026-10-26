@@ -18,6 +18,10 @@ export function receiptFileKey(clientId: string, transactionId: string) {
   return `receipt:${clientId || 'primary'}:${transactionId}`
 }
 
+export function kycFileKey(clientId: string, side: 'front' | 'back') {
+  return `kyc:${clientId || 'primary'}:${side}`
+}
+
 export function saveStoredFile(key: string, file: StoredFile) {
   return openDb().then(
     (db) =>
@@ -52,4 +56,14 @@ export function loadStoredFile(key: string) {
         }
       }),
   )
+}
+
+export async function findReceiptFile(clientId: string, transactionId: string) {
+  const direct = await loadStoredFile(receiptFileKey(clientId, transactionId))
+  if (direct?.dataUrl) return direct
+  if (clientId !== 'primary') {
+    const shared = await loadStoredFile(receiptFileKey('primary', transactionId))
+    if (shared?.dataUrl) return shared
+  }
+  return null
 }

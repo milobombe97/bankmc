@@ -140,3 +140,25 @@ create policy "update own receipts" on storage.objects
     bucket_id = 'receipts'
     and auth.uid()::text = (storage.foldername(name))[1]
   );
+
+-- Private "kyc" bucket. Create it in Storage before running this section.
+drop policy if exists "read own or staff kyc" on storage.objects;
+create policy "read own or staff kyc" on storage.objects
+  for select using (
+    bucket_id = 'kyc'
+    and (auth.uid()::text = (storage.foldername(name))[1] or public.is_staff())
+  );
+
+drop policy if exists "upload own kyc" on storage.objects;
+create policy "upload own kyc" on storage.objects
+  for insert with check (
+    bucket_id = 'kyc'
+    and auth.uid()::text = (storage.foldername(name))[1]
+  );
+
+drop policy if exists "update own kyc" on storage.objects;
+create policy "update own kyc" on storage.objects
+  for update using (
+    bucket_id = 'kyc'
+    and auth.uid()::text = (storage.foldername(name))[1]
+  );

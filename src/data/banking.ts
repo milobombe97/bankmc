@@ -1,3 +1,7 @@
+import { loadAccount } from '../auth/session'
+import { receiptFileKey, saveStoredFile } from './fileStore'
+import type { StoredFile } from './files'
+
 export type Currency = 'GBP' | 'EUR' | 'USD'
 
 export type AccountField = {
@@ -35,7 +39,7 @@ export const bankAccounts: BankAccount[] = [
     id: 'personal',
     name: 'Personal',
     currency: 'GBP',
-    balance: 6012.48,
+    balance: 0,
     detail: 'Sort code 00-99-00',
     fields: [
       { label: 'Bank name', value: 'Nevolute Inc.' },
@@ -49,7 +53,7 @@ export const bankAccounts: BankAccount[] = [
     id: 'savings',
     name: 'Savings',
     currency: 'GBP',
-    balance: 2450.12,
+    balance: 0,
     detail: '4.00% AER variable',
     fields: [
       { label: 'Bank name', value: 'Nevolute Inc.' },
@@ -63,7 +67,7 @@ export const bankAccounts: BankAccount[] = [
     id: 'euro',
     name: 'Euro',
     currency: 'EUR',
-    balance: 3126,
+    balance: 0,
     detail: 'EU12 REVO 0099 8765 4321',
     fields: [
       { label: 'Bank name', value: 'Nevolute Inc.' },
@@ -76,7 +80,7 @@ export const bankAccounts: BankAccount[] = [
     id: 'usd',
     name: 'US Dollar',
     currency: 'USD',
-    balance: 1840.25,
+    balance: 0,
     detail: 'Checking · Nevolute Inc.',
     fields: [
       { label: 'Bank name', value: 'Nevolute Inc.' },
@@ -87,22 +91,9 @@ export const bankAccounts: BankAccount[] = [
   },
 ]
 
-const seed: Transaction[] = [
-  { id: 't1', accountId: 'personal', name: 'Coffee in Paris', category: 'Eating out', amount: -3.25, date: '2026-10-24' },
-  { id: 't2', accountId: 'personal', name: 'House bills', category: 'Bills', amount: -225, date: '2026-10-24' },
-  { id: 't3', accountId: 'personal', name: 'Salary', category: 'Income', amount: 2450, date: '2026-10-23' },
-  { id: 't4', accountId: 'savings', name: 'Interest', category: 'Savings', amount: 8.14, date: '2026-10-22' },
-  { id: 't5', accountId: 'euro', name: 'Train to Lyon', category: 'Transport', amount: -42.5, date: '2026-10-21' },
-  { id: 't6', accountId: 'personal', name: 'Grocery shop', category: 'Groceries', amount: -54.2, date: '2026-10-20' },
-  { id: 't7', accountId: 'personal', name: 'Refund · jacket', category: 'Shopping', amount: 39, date: '2026-10-18' },
-  { id: 't8', accountId: 'usd', name: 'Bookstore', category: 'Shopping', amount: -18.4, date: '2026-10-19' },
-]
-
-import { loadAccount } from '../auth/session'
-import { receiptFileKey, saveStoredFile } from './fileStore'
-import type { StoredFile } from './files'
-
 const LEDGER_KEY = 'revolut-clone-ledger'
+
+export const defaultAccountId = 'usd'
 
 export function ledgerKey(clientId = loadAccount()?.id || 'primary') {
   return clientId === 'primary' ? LEDGER_KEY : `${LEDGER_KEY}:${clientId}`
@@ -111,11 +102,10 @@ export function ledgerKey(clientId = loadAccount()?.id || 'primary') {
 export function loadTransactions(): Transaction[] {
   try {
     const raw = localStorage.getItem(ledgerKey())
-    if (!raw) return seed
-    const extra = JSON.parse(raw) as Transaction[]
-    return [...extra, ...seed]
+    if (!raw) return []
+    return JSON.parse(raw) as Transaction[]
   } catch {
-    return seed
+    return []
   }
 }
 
@@ -134,7 +124,7 @@ function writeExtra(entries: Transaction[], clientId?: string) {
 }
 
 export function loadClientTransactions(clientId: string) {
-  return [...extraTransactions(clientId), ...seed]
+  return extraTransactions(clientId)
 }
 
 function appendTransaction(entry: Transaction) {
@@ -287,7 +277,7 @@ export function availableBalance(account: BankAccount, clientId?: string) {
   const reserved = extraTransactions(clientId)
     .filter((item) => item.accountId === account.id && item.status === 'pending' && item.amount < 0)
     .reduce((sum, item) => sum + item.amount, 0)
-  return accountBalance(account) + reserved
+  return accountBalance(account, clientId) + reserved
 }
 
 export function gbpTotal() {

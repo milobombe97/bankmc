@@ -3,6 +3,10 @@ import { Link, useParams } from 'react-router-dom'
 import { attachReceipt, bankAccounts, formatMoney, loadTransactions, paymentMethodName } from '../../data/banking'
 import { readStoredFile } from '../../data/files'
 import { loadAccount } from '../../auth/session'
+import { FilePreview } from '../../components/FilePreview'
+import { findReceiptFile } from '../../data/fileStore'
+import { receiptPreview } from '../../data/remote'
+import type { StoredFile } from '../../data/files'
 
 export function DashboardTransactionDetail() {
   const { id = '' } = useParams()
@@ -16,6 +20,41 @@ export function DashboardTransactionDetail() {
 
   const item = loadTransactions().find((entry) => entry.id === decodeURIComponent(id))
   void tick
+  const receiptId = item?.id ?? ''
+  const inlineUrl = item?.receiptFile?.dataUrl ?? ''
+  const receiptPath = item?.receiptPath ?? ''
+  const receiptName = item?.receiptName ?? ''
+  const receiptStored = Boolean(item?.receiptStored)
+  const [file, setFile] = useState<StoredFile | undefined>(item?.receiptFile)
+
+  useEffect(() => {
+    let active = true
+    const clientId = loadAccount()?.id || 'primary'
+    if (inlineUrl && item?.receiptFile) {
+      setFile(item.receiptFile)
+      return
+    }
+    if (!receiptStored && !receiptPath) {
+      setFile(undefined)
+      return
+    }
+    findReceiptFile(clientId, receiptId).then(async (stored) => {
+      if (!active) return
+      if (stored?.dataUrl) {
+        setFile(stored)
+        return
+      }
+      if (receiptPath) {
+        const preview = await receiptPreview(receiptPath, receiptName || 'Receipt', 'image/jpeg')
+        if (active) setFile(preview ?? undefined)
+        return
+      }
+      if (active) setFile(undefined)
+    })
+    return () => {
+      active = false
+    }
+  }, [receiptId, inlineUrl, receiptPath, receiptStored, receiptName])
 
   if (!item) {
     return (
@@ -58,6 +97,11 @@ export function DashboardTransactionDetail() {
         <Row label="Reference" value={item.id} />
         {pending ? <Row label="Receipt" value={item.receiptName ?? 'Not uploaded'} /> : null}
       </dl>
+      {file ? (
+        <div className="mt-6">
+          <FilePreview file={file} fallbackName={item.receiptName} />
+        </div>
+      ) : null}
       {pending && (!item.receiptSent || !fileSaved) && (
         <label className="mt-4 inline-flex cursor-pointer rounded-full bg-revolut-ink px-4 py-2 text-sm font-medium text-white">
           {fileSaved ? 'Replace receipt' : 'Upload receipt'}
