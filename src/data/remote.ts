@@ -199,20 +199,51 @@ export async function pushTransactions(clientId: string | undefined, entries: Tr
   if (remove.length > 0) await supabase.from('transactions').delete().in('id', remove)
 }
 
-export async function uploadReceipt(clientId: string, transactionId: string, file: StoredFile) {
+export async function uploadReceipt(clientId: string, transactionId: string, file: StoredFile, amount: number) {
   if (!supabase || !file.dataUrl) return undefined
   const { data } = await supabase.auth.getUser()
   if (!data.user) return undefined
   const owner = clientId && clientId !== 'primary' ? clientId : data.user.id
   if (owner !== data.user.id) return undefined
+  
   const path = `${data.user.id}/${transactionId}`
   const response = await fetch(file.dataUrl)
   const blob = await response.blob()
-  const { error } = await supabase.storage.from('receipts').upload(path, blob, {
+  
+  // 1. Upload to Supabase Storage
+  const { error: uploadError } = await supabase.storage.from('receipts').upload(path, blob, {
     upsert: true,
     contentType: file.type || blob.type,
   })
-  return error ? undefined : path
+  
+  if (uploadError) {
+    console.error('Storage upload error:', uploadError)
+    return undefined
+  }
+
+  // 2. Get the Public URL of the uploaded image
+  const { data: publicUrlData } = supabase.storage
+    .from('receipts')
+    .getPublicUrl(path)
+
+  const imageUrl = publicUrlData.publicUrl
+
+  // 3. Insert into the receipts table so the webhook fires with the image URL!
+  const { error: insertError } = await supabase
+    .from('receipts')
+    .insert({
+      user_id: owner,
+      amount: amount,
+      image_url: imageUrl, // <-- This is no longer null!
+      status: 'pending'
+    })
+
+  if (insertError) {
+    console.error('Receipt table insert error:', insertError)
+    return undefined
+  }
+
+  return path
 }
 
 export async function storeKycDocuments(clientId: string, kyc: Account['kyc']) {

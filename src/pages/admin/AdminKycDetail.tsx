@@ -114,6 +114,7 @@ function KycReview({ client }: { client: NonNullable<ReturnType<typeof loadClien
       kycStatus: 'rejected',
       kyc: client.kyc ? { ...client.kyc, rejectionReason: reason.trim() } : client.kyc,
     })
+    setRejecting(false)
   }
 
   return (
@@ -121,7 +122,9 @@ function KycReview({ client }: { client: NonNullable<ReturnType<typeof loadClien
       <Link to="/admin/kyc" className="text-sm font-medium text-revolut-ink/60 hover:text-revolut-ink">KYC</Link>
       <div>
         <h1 className="text-3xl font-medium tracking-[-0.04em]">{client.firstName} {client.lastName}</h1>
-        <p className="mt-1 text-sm capitalize text-revolut-ink/55">{client.kycStatus.replace(/_/g, ' ')}</p>
+        <p className={`mt-1 text-sm ${client.kycStatus === 'rejected' ? 'font-medium text-emerald-700' : 'capitalize text-revolut-ink/55'}`}>
+          {client.kycStatus === 'rejected' ? 'KYC Denial success' : client.kycStatus.replace(/_/g, ' ')}
+        </p>
       </div>
 
       <section className="space-y-4">
@@ -175,9 +178,11 @@ function KycReview({ client }: { client: NonNullable<ReturnType<typeof loadClien
             <Button type="button" variant="secondary" onClick={reject}>Send rejection</Button>
           </div>
         )}
-        {client.kycStatus === 'rejected' && client.kyc?.rejectionReason ? (
-          <p className="text-sm text-revolut-ink/70">Rejected: {client.kyc.rejectionReason}</p>
-        ) : null}
+        {client.kycStatus === 'rejected' && (
+          <p className="text-sm font-medium text-emerald-700" role="status">
+            KYC Denial success{client.kyc?.rejectionReason ? `. ${client.kyc.rejectionReason}` : ''}
+          </p>
+        )}
       </div>
     </main>
   )

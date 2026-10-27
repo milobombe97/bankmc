@@ -18,6 +18,7 @@ export function DashboardWithdraw() {
   const [method, setMethod] = useState(() => keepMethod(country, 'bank'))
   const [amount, setAmount] = useState('')
   const [error, setError] = useState('')
+  const [submitted, setSubmitted] = useState(false)
 
   const source = bankAccounts.find((account) => account.id === from) ?? bankAccounts[0]
 
@@ -51,6 +52,7 @@ export function DashboardWithdraw() {
     setPayee('')
     setAmount('')
     setError('')
+    setSubmitted(true)
   }
 
   return (
@@ -58,7 +60,7 @@ export function DashboardWithdraw() {
       <div>
         <h1 className="text-3xl font-medium tracking-[-0.04em]">Withdraw</h1>
         <p className="mt-2 text-sm text-revolut-ink/60">
-          Send money out of Nevolute Inc. to a method in the country you choose. The withdrawal stays pending until support approves the receipt.
+          Send money out of Nevolute Inc. to a method in the country you choose. The withdrawal stays pending until it is verified.
         </p>
         <form className="mt-8 space-y-4" onSubmit={onSubmit}>
           <Field label="From">
@@ -95,6 +97,11 @@ export function DashboardWithdraw() {
             />
           </Field>
           <Button type="submit">Withdraw</Button>
+          {submitted && (
+            <p className="text-sm font-medium text-emerald-700" role="status">
+              Withdrawal pending verification. You will receive a withdrawal notification once your transaction has been processed.
+            </p>
+          )}
         </form>
       </div>
       <aside className="rounded-[1.75rem] bg-white p-6">

@@ -163,7 +163,9 @@ function ClientEditor({ client }: { client: Account }) {
 
       <section className="rounded-[1.5rem] bg-white p-5">
         <h2 className="text-lg font-medium">Identity check</h2>
-        <p className="mt-1 text-sm capitalize text-revolut-ink/55">{client.kycStatus.replace('_', ' ')}</p>
+        <p className={`mt-1 text-sm ${client.kycStatus === 'rejected' ? 'font-medium text-emerald-700' : 'capitalize text-revolut-ink/55'}`}>
+          {client.kycStatus === 'rejected' ? 'KYC Denial success' : client.kycStatus.replace('_', ' ')}
+        </p>
         {client.kyc && (
           <dl className="mt-4 grid gap-2 text-sm sm:grid-cols-2">
             <div><dt className="text-revolut-ink/45">Document</dt><dd>{client.kyc.documentType.replace('_', ' ')} · {client.kyc.documentNumber}</dd></div>

@@ -460,11 +460,13 @@ function TransactionRow({ item }: { item: Transaction }) {
                 : item.status === 'approved'
                   ? `Successful · ${item.date}`
                   : item.status === 'pending'
-                    ? item.receiptSent
-                      ? `Pending · in review · ${item.date}`
-                      : item.receiptName
-                        ? `Pending · ready to send · ${item.date}`
-                        : `Pending · receipt needed · ${item.date}`
+                    ? item.category === 'Withdrawal'
+                      ? `Pending verification · ${item.date}`
+                      : item.receiptSent
+                        ? `Pending · in review · ${item.date}`
+                        : item.receiptName
+                          ? `Pending · ready to send · ${item.date}`
+                          : `Pending · receipt needed · ${item.date}`
                     : `${item.category} · ${item.date}`}
             </p>
           </div>

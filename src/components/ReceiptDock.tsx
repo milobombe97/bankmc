@@ -19,7 +19,9 @@ export function ReceiptDock() {
     () =>
       clientId
         ? loadClientTransactions(clientId).filter(
-            (item) => item.status === 'pending' || item.status === 'declined' || (item.status === 'approved' && !item.receiptDismissed),
+            (item) =>
+              item.category !== 'Withdrawal' &&
+              (item.status === 'pending' || item.status === 'declined' || (item.status === 'approved' && !item.receiptDismissed)),
           )
         : [],
     [clientId, tick],

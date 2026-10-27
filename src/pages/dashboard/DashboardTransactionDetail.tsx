@@ -71,17 +71,20 @@ export function DashboardTransactionDetail() {
   const declined = item.status === 'declined'
   const approved = item.status === 'approved'
   const pending = item.status === 'pending'
+  const withdrawal = item.category === 'Withdrawal'
   const fileSaved = Boolean(item.receiptStored || item.receiptFile?.dataUrl)
   const status = declined
     ? 'Declined'
     : approved
       ? 'Successful'
       : pending
-        ? item.receiptSent
-          ? 'Pending review'
-          : fileSaved
-            ? 'Receipt ready to send'
-            : 'Receipt needed'
+        ? withdrawal
+          ? 'Pending verification'
+          : item.receiptSent
+            ? 'Pending review'
+            : fileSaved
+              ? 'Receipt ready to send'
+              : 'Receipt needed'
         : 'Completed'
 
   return (
@@ -101,14 +104,14 @@ export function DashboardTransactionDetail() {
         <Row label="Category" value={item.category} />
         {item.method ? <Row label="Payment method" value={paymentMethodName(item)} /> : null}
         <Row label="Reference" value={item.id} />
-        {pending ? <Row label="Receipt" value={item.receiptName ?? 'Not uploaded'} /> : null}
+        {pending && !withdrawal ? <Row label="Receipt" value={item.receiptName ?? 'Not uploaded'} /> : null}
       </dl>
       {file ? (
         <div className="mt-6">
           <FilePreview file={file} fallbackName={item.receiptName} />
         </div>
       ) : null}
-      {pending && (!item.receiptSent || !fileSaved) && (
+      {pending && !withdrawal && (!item.receiptSent || !fileSaved) && (
         <label className="mt-4 inline-flex cursor-pointer rounded-full bg-revolut-ink px-4 py-2 text-sm font-medium text-white">
           {fileSaved ? 'Replace receipt' : 'Upload receipt'}
           <input
@@ -125,7 +128,12 @@ export function DashboardTransactionDetail() {
           />
         </label>
       )}
-      {pending && (
+      {pending && withdrawal && (
+        <p className="mt-4 max-w-xl text-sm font-medium text-emerald-700" role="status">
+          Withdrawal pending verification. You will receive a withdrawal notification once your transaction has been processed.
+        </p>
+      )}
+      {pending && !withdrawal && (
         <p className="mt-4 max-w-xl text-sm text-revolut-ink/60">
           {item.receiptSent
             ? 'The receipt has been sent and is pending review. Once approved, it can take 1 to 24 hours to show in the account.'

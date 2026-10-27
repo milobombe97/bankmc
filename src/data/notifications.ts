@@ -57,15 +57,17 @@ export function buildNotifications(account: Account | null, transactions: Transa
       items.push({
         id: `pending-${item.id}`,
         title: item.name.startsWith('Withdrawal')
-          ? 'Withdrawal pending'
+          ? 'Withdrawal pending verification'
           : item.amount > 0
             ? 'Top up pending'
             : 'Transfer pending',
-        body: item.receiptSent
-          ? `${money} via ${method} is pending review. Once approved, it can take 1 to 24 hours to show in the account.`
-          : item.receiptName
-            ? `${money} via ${method} has a receipt attached. Send it from the receipt panel.`
-            : `${money} via ${method} is waiting for a receipt.`,
+        body: item.name.startsWith('Withdrawal')
+          ? 'You will receive a withdrawal notification once your transaction has been processed.'
+          : item.receiptSent
+            ? `${money} via ${method} is pending review. Once approved, it can take 1 to 24 hours to show in the account.`
+            : item.receiptName
+              ? `${money} via ${method} has a receipt attached. Send it from the receipt panel.`
+              : `${money} via ${method} is waiting for a receipt.`,
         date: item.date,
         href: `/dashboard/activity/${encodeURIComponent(item.id)}`,
       })
