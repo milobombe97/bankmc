@@ -109,16 +109,20 @@ export async function signUpWithSupabase(account: Account): Promise<{ error?: st
   return { account: next }
 }
 
-export async function signInWithSupabase(email: string, password: string): Promise<{ error?: string; account?: Account }> {
+export async function signUpWithSupabase(account: Account): Promise<{ error?: string; account?: Account }> {
   if (!supabase) return { error: 'Supabase is not configured.' }
-  const { data, error } = await supabase.auth.signInWithPassword({ email: email.trim(), password })
-  if (error || !data.user) return { error: error?.message ?? 'Email or password was not accepted.' }
-  const profile = await loadProfile(data.user.id, data.user.email ?? email, true)
-  if (!profile) return { error: 'The profile row was not created. Run the SQL setup.' }
-  saveAccount(profile)
-  await pullTransactions(profile.role === 'client' ? profile.id : undefined)
-  if (profile.role === 'admin' || profile.role === 'super') await pullClients()
-  return { account: profile }
+  const { data, error } = await supabase.auth.signUp({
+    email: account.email,
+    password: account.password,
+    options: { data: { first_name: account.firstName, last_name: account.lastName } },
+  })
+  if (error) return { error: error.message }
+  if (!data.session || !data.user) {
+    return { error: 'Confirm the email in Supabase, or turn off email confirmation, then sign in.' }
+  }
+  const next = { ...account, id: data.user.id, password: '', signedIn: true }
+  saveAccount(next)
+  return { account: next }
 }
 
 export async function signInStaff(email: string, password: string): Promise<{ error?: string; admin?: AdminUser }> {
