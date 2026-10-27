@@ -16,7 +16,10 @@ export default async function handler(req: any, res: any) {
 
   try {
     const payload = req.body;
-    const { table, type, record, old_record } = payload;
+    // ALWAYS log the raw incoming payload so we can see it in Vercel
+    console.log('--- INCOMING WEBHOOK PAYLOAD ---', JSON.stringify(payload, null, 2));
+
+    const { table, type, record } = payload;
 
     // Helper to find recipient email
     async function getRecipientEmail(userId: string) {
@@ -34,31 +37,17 @@ export default async function handler(req: any, res: any) {
     let htmlContent = '';
 
     // ==========================================
-    // 1. TRANSACTIONS (Topups, Withdrawals, Transfers)
+    // 1. TRANSACTIONS
     // ==========================================
-    if (table === 'transactions' && type === 'INSERT') {
+    if (table === 'transactions') {
       recipientEmail = await getRecipientEmail(record.user_id);
       const category = record?.category || 'transaction';
-      
-      if (category === 'topup') {
-        subject = 'Top-Up Successful!';
-      } else if (category === 'withdrawal') {
-        subject = 'Withdrawal Processed';
-      } else if (category === 'transfer') {
-        subject = 'Transfer Sent Successfully';
-      } else {
-        subject = 'Transaction Update';
-      }
+      subject = category === 'topup' ? 'Top-Up Successful!' : 'Transaction Update';
 
       htmlContent = `
-        <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 20px; border: 1px solid #eaeaea; border-radius: 8px;">
-          <h2 style="color: #333;">Nevolute Transaction Alert</h2>
-          <p>Your recent <strong>${category}</strong> has been successfully processed.</p>
-          <div style="background-color: #f9f9f9; padding: 15px; border-radius: 6px; margin: 20px 0;">
-            <p style="margin: 5px 0;"><strong>Amount:</strong> ${record?.amount} XAF</p>
-            <p style="margin: 5px 0;"><strong>Status:</strong> ${record?.status}</p>
-            <p style="margin: 5px 0;"><strong>Reference ID:</strong> ${record?.id}</p>
-          </div>
+        <div style="font-family: Arial, sans-serif; padding: 20px;">
+          <h2>Transaction Alert</h2>
+          <p>Your ${category} of <strong>${record?.amount} XAF</strong> was processed.</p>
         </div>
       `;
     }
@@ -66,67 +55,33 @@ export default async function handler(req: any, res: any) {
     // ==========================================
     // 2. RECEIPTS (Approval & Rejection)
     // ==========================================
-    else if (table === 'receipts' && type === 'UPDATE') {
-      // Only trigger if status actually changed to approved or rejected
-      const newStatus = record?.status;
-      const oldStatus = old_record?.status;
+    else if (table === 'receipts') {
+      const status = record?.status;
+      console.log('Processing receipt with status:', status);
 
-      if (newStatus !== oldStatus && (newStatus === 'approved' || newStatus === 'rejected')) {
+      if (status === 'approved' || status === 'rejected') {
         recipientEmail = await getRecipientEmail(record.user_id);
-        const isApproved = newStatus === 'approved';
+        const isApproved = status === 'approved';
 
         subject = isApproved ? 'Receipt Approved!' : 'Receipt Rejected';
-        const statusColor = isApproved ? '#2e7d32' : '#c62828';
+        const color = isApproved ? '#2e7d32' : '#c62828';
 
         htmlContent = `
-          <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 20px; border: 1px solid #eaeaea; border-radius: 8px;">
-            <h2 style="color: #333;">Receipt Status Update</h2>
-            <p>Your submitted receipt has been reviewed.</p>
-            <div style="background-color: #f9f9f9; padding: 15px; border-radius: 6px; margin: 20px 0;">
-              <p style="margin: 5px 0;"><strong>Status:</strong> <span style="color: ${statusColor}; font-weight: bold; text-transform: uppercase;">${newStatus}</span></p>
-              ${record?.reason ? `<p style="margin: 5px 0;"><strong>Reason:</strong> ${record.reason}</p>` : ''}
-              <p style="margin: 5px 0;"><strong>Reference ID:</strong> ${record?.id}</p>
-            </div>
+          <div style="font-family: Arial, sans-serif; max-width: 600px; padding: 20px; border: 1px solid #eaeaea; border-radius: 8px;">
+            <h2>Receipt Status Update</h2>
+            <p>Your receipt status is: <strong style="color: ${color}; text-transform: uppercase;">${status}</strong></p>
+            ${record?.reason ? `<p><strong>Reason:</strong> ${record.reason}</p>` : ''}
           </div>
         `;
       }
     }
 
-    // ==========================================
-    // 3. KYC (Approval & Rejection)
-    // ==========================================
-    // Assuming KYC status is stored in 'profiles' or a 'kyc_submissions' table
-    else if ((table === 'profiles' || table === 'kyc_submissions') && type === 'UPDATE') {
-      const newKycStatus = record?.kyc_status || record?.status;
-      const oldKycStatus = old_record?.kyc_status || old_record?.status;
-
-      if (newKycStatus !== oldKycStatus && (newKycStatus === 'approved' || newKycStatus === 'rejected')) {
-        const userId = record?.user_id || record?.id;
-        recipientEmail = await getRecipientEmail(userId) || record?.email;
-        const isApproved = newKycStatus === 'approved';
-
-        subject = isApproved ? 'KYC Verification Approved!' : 'KYC Verification Rejected';
-        const statusColor = isApproved ? '#2e7d32' : '#c62828';
-
-        htmlContent = `
-          <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 20px; border: 1px solid #eaeaea; border-radius: 8px;">
-            <h2 style="color: #333;">KYC Verification Update</h2>
-            <p>Your identity verification status has been updated.</p>
-            <div style="background-color: #f9f9f9; padding: 15px; border-radius: 6px; margin: 20px 0;">
-              <p style="margin: 5px 0;"><strong>Status:</strong> <span style="color: ${statusColor}; font-weight: bold; text-transform: uppercase;">${newKycStatus}</span></p>
-              ${record?.rejection_reason ? `<p style="margin: 5px 0;"><strong>Reason:</strong> ${record.rejection_reason}</p>` : ''}
-            </div>
-          </div>
-        `;
-      }
-    }
-
-    // If no email or content generated, exit gracefully
     if (!recipientEmail || !htmlContent) {
-      return res.status(200).json({ message: 'Webhook received, no email triggered for this event.' });
+      console.log('Skipping email: No recipient email or HTML content generated.');
+      return res.status(200).json({ message: 'Webhook received, but no email triggered.' });
     }
 
-    console.log(`Sending ${subject} email to: ${recipientEmail}`);
+    console.log(`Sending email [${subject}] to: ${recipientEmail}`);
 
     const { data, error } = await resend.emails.send({
       from: 'info@nevoluteinc.com',
@@ -140,6 +95,7 @@ export default async function handler(req: any, res: any) {
       return res.status(400).json({ error });
     }
 
+    console.log('Email sent successfully:', data);
     return res.status(200).json({ success: true, emailData: data });
 
   } catch (err: any) {
