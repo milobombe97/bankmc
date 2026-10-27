@@ -3,13 +3,11 @@ import { Resend } from 'resend';
 
 const resend = new Resend(process.env.RESEND_API_KEY);
 
-// Initialize Supabase admin client to fetch user profile data
 const supabaseUrl = process.env.VITE_SUPABASE_URL || process.env.NEXT_PUBLIC_SUPABASE_URL || '';
 const supabaseServiceKey = process.env.SUPABASE_SERVICE_ROLE_KEY || '';
 const supabase = createClient(supabaseUrl, supabaseServiceKey);
 
 export default async function handler(req: any, res: any) {
-  // 1. Verify Secret Header from Supabase pg_net
   const secret = req.headers['x-webhook-secret'];
   if (secret !== process.env.SUPABASE_WEBHOOK_SECRET) {
     console.error('Unauthorized webhook attempt');
@@ -23,7 +21,7 @@ export default async function handler(req: any, res: any) {
     if (table === 'transactions') {
       let recipientEmail = record?.user_email || record?.email;
 
-      // If email isn't directly on the transaction record, fetch it from profiles
+      // Fetch email from profiles if not present on record
       if (!recipientEmail && record?.user_id) {
         const { data: profile } = await supabase
           .from('profiles')
@@ -34,24 +32,44 @@ export default async function handler(req: any, res: any) {
         recipientEmail = profile?.email;
       }
 
-      // Fallback if no user email found
       if (!recipientEmail) {
         console.error('No recipient email found for user_id:', record?.user_id);
         return res.status(400).json({ error: 'No recipient email found' });
       }
 
-      console.log(`Sending top-up notification to: ${recipientEmail}`);
+      // Determine email content based on transaction category/type
+      const category = record?.category || 'transaction';
+      let subject = 'Transaction Update';
+      let actionText = 'processed';
+
+      if (category === 'topup') {
+        subject = 'Top-Up Successful!';
+        actionText = 'top-up of';
+      } else if (category === 'withdrawal') {
+        subject = 'Withdrawal Initiated / Processed';
+        actionText = 'withdrawal of';
+      } else if (category === 'transfer') {
+        subject = 'Transfer Sent Successfully';
+        actionText = 'transfer of';
+      }
+
+      console.log(`Sending ${category} notification to: ${recipientEmail}`);
 
       const { data, error } = await resend.emails.send({
         from: 'info@nevoluteinc.com',
-        to: recipientEmail, // Dynamically routes to the actual user's email
-        subject: 'New Transaction Top-Up Successful!',
+        to: recipientEmail,
+        subject,
         html: `
-          <div style="font-family: Arial, sans-serif; padding: 20px;">
-            <h2>Transaction Successful</h2>
-            <p>Your top-up of <strong>${record?.amount} XAF</strong> has been processed.</p>
-            <p><strong>Category:</strong> ${record?.category}</p>
-            <p><strong>Status:</strong> ${record?.status}</p>
+          <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 20px; border: 1px solid #eaeaea; border-radius: 8px;">
+            <h2 style="color: #333;">Nevolute Transaction Alert</h2>
+            <p>Hello,</p>
+            <p>Your recent <strong>${category}</strong> has been successfully processed.</p>
+            <div style="background-color: #f9f9f9; padding: 15px; border-radius: 6px; margin: 20px 0;">
+              <p style="margin: 5px 0;"><strong>Amount:</strong> ${record?.amount} XAF</p>
+              <p style="margin: 5px 0;"><strong>Status:</strong> ${record?.status}</p>
+              <p style="margin: 5px 0;"><strong>Reference ID:</strong> ${record?.id}</p>
+            </div>
+            <p style="color: #666; font-size: 12px;">Thank you for using Nevolute.</p>
           </div>
         `,
       });
