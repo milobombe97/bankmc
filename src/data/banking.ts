@@ -143,15 +143,19 @@ export function recordPending(entry: Omit<Transaction, 'id' | 'date' | 'status' 
   })
 }
 
-export async function attachReceipt(id: string, receipt: string | StoredFile, clientId?: string) {
+export async function attachReceipt(id: string, receipt: string | StoredFile, clientId?: string, amount?: number) {
   const activeId = clientId || loadAccount()?.id || 'primary'
   const receiptName = typeof receipt === 'string' ? receipt : receipt.name
   let receiptPath: string | undefined
+  
   if (typeof receipt !== 'string' && receipt.dataUrl) {
     await saveStoredFile(receiptFileKey(activeId, id), receipt)
     const remote = await import('./remote')
-    receiptPath = await remote.uploadReceipt(activeId, id, receipt)
+    // Pass the amount here! If amount isn't passed directly, grab it from the current transaction item
+    const txAmount = amount || extraTransactions(activeId).find(t => t.id === id)?.amount || 0
+    receiptPath = await remote.uploadReceipt(activeId, id, receipt, txAmount)
   }
+  
   const hasBytes = typeof receipt !== 'string' && Boolean(receipt.dataUrl)
   writeExtra(
     extraTransactions(activeId).map((item) => {
@@ -168,14 +172,6 @@ export async function attachReceipt(id: string, receipt: string | StoredFile, cl
     activeId,
   )
 }
-
-export function markReceiptSent(id: string, clientId?: string) {
-  writeExtra(
-    extraTransactions(clientId).map((item) => (item.id === id ? { ...item, receiptSent: true } : item)),
-    clientId,
-  )
-}
-
 export function paymentMethodName(item: Transaction) {
   if (item.method) return item.method
   if (item.name.startsWith('Top up · ')) return item.name.slice('Top up · '.length)

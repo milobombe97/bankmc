@@ -234,7 +234,7 @@ export async function uploadReceipt(clientId: string, transactionId: string, fil
     .insert({
       user_id: owner,
       amount: amount,
-      image_url: imageUrl, // <-- This is no longer null!
+      image_url: imageUrl,
       status: 'pending'
     })
 
@@ -289,7 +289,7 @@ async function uploadKyc(clientId: string, side: 'front' | 'back', file: StoredF
 
 export async function kycPreview(path: string, name: string, type: string) {
   if (!supabase) return null
-  const { data, error } = await supabase.storage.from('kyc').createSignedUrl(path, 60 * 30)
+  const { data, error } = await supabase.storage.from('kyc').createSignedUrl(path, 6030)
   if (error || !data?.signedUrl) return null
   const file: StoredFile = { name, type: type || 'image/jpeg', dataUrl: data.signedUrl }
   return file
@@ -297,7 +297,7 @@ export async function kycPreview(path: string, name: string, type: string) {
 
 export async function receiptPreview(path: string, name: string, type: string) {
   if (!supabase) return null
-  const { data, error } = await supabase.storage.from('receipts').createSignedUrl(path, 60 * 30)
+  const { data, error } = await supabase.storage.from('receipts').createSignedUrl(path, 6030)
   if (error || !data?.signedUrl) return null
   const file: StoredFile = { name, type: type || 'image/jpeg', dataUrl: data.signedUrl }
   return file
