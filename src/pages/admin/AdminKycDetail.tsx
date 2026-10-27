@@ -4,8 +4,9 @@ import { loadClients, updateClient } from '../../auth/session'
 import { Button } from '../../components/Button'
 import { FilePreview } from '../../components/FilePreview'
 import type { StoredFile } from '../../data/files'
-import { kycFileKey, loadStoredFile } from '../../data/fileStore'
-import { kycPreview } from '../../data/remote'
+import { type KycFileKind, kycFileKey, loadStoredFile } from '../../data/fileStore'
+import { kycPreview, reviewKycSubmission } from '../../data/remote'
+import { supabase } from '../../lib/supabase'
 import { useAdminTick } from './useAdminTick'
 
 const documentLabel = {
@@ -23,21 +24,22 @@ function mimeFromName(name: string) {
   return 'image/jpeg'
 }
 
-async function loadSide(
+async function loadKycAsset(
   clientId: string,
-  side: 'front' | 'back',
+  kind: KycFileKind,
   inline: StoredFile | undefined,
   path: string | undefined,
   name: string | undefined,
   stored: boolean | undefined,
+  fallbackLabel: string,
 ) {
   if (inline?.dataUrl) return inline
   if (stored) {
-    const local = await loadStoredFile(kycFileKey(clientId, side))
+    const local = await loadStoredFile(kycFileKey(clientId, kind))
     if (local?.dataUrl) return local
   }
   if (!path) return undefined
-  return (await kycPreview(path, name || 'Identity document', mimeFromName(name || ''))) ?? undefined
+  return (await kycPreview(path, name || fallbackLabel, mimeFromName(name || ''))) ?? undefined
 }
 
 export function AdminKycDetail() {
@@ -65,15 +67,23 @@ function KycReview({ client }: { client: NonNullable<ReturnType<typeof loadClien
   const backUrl = kyc?.documentBackFile?.dataUrl ?? ''
   const [front, setFront] = useState<StoredFile | undefined>(frontUrl ? kyc?.documentFile : undefined)
   const [back, setBack] = useState<StoredFile | undefined>(backUrl ? kyc?.documentBackFile : undefined)
+  const [selfie, setSelfie] = useState<StoredFile | undefined>()
+  const [proof, setProof] = useState<StoredFile | undefined>()
 
   useEffect(() => {
     let active = true
     const clientId = client.id || 'primary'
-    loadSide(clientId, 'front', frontUrl ? kyc?.documentFile : undefined, kyc?.documentPath, kyc?.documentFileName, kyc?.documentStored).then((file) => {
+    loadKycAsset(clientId, 'front', frontUrl ? kyc?.documentFile : undefined, kyc?.documentPath, kyc?.documentFileName, kyc?.documentStored, 'Identity document').then((file) => {
       if (active) setFront(file)
     })
-    loadSide(clientId, 'back', backUrl ? kyc?.documentBackFile : undefined, kyc?.documentBackPath, kyc?.documentBackFileName, kyc?.documentBackStored).then((file) => {
+    loadKycAsset(clientId, 'back', backUrl ? kyc?.documentBackFile : undefined, kyc?.documentBackPath, kyc?.documentBackFileName, kyc?.documentBackStored, 'Identity document (back)').then((file) => {
       if (active) setBack(file)
+    })
+    loadKycAsset(clientId, 'selfie', kyc?.selfieFile, kyc?.selfiePath, kyc?.selfieFileName, kyc?.selfieStored, 'Selfie').then((file) => {
+      if (active) setSelfie(file)
+    })
+    loadKycAsset(clientId, 'proof', kyc?.proofOfAddressFile, kyc?.proofOfAddressPath, kyc?.proofOfAddressFileName, kyc?.proofOfAddressStored, 'Proof of address').then((file) => {
+      if (active) setProof(file)
     })
     return () => {
       active = false
@@ -88,6 +98,12 @@ function KycReview({ client }: { client: NonNullable<ReturnType<typeof loadClien
     kyc?.documentBackPath,
     kyc?.documentBackFileName,
     kyc?.documentBackStored,
+    kyc?.selfiePath,
+    kyc?.selfieFileName,
+    kyc?.selfieStored,
+    kyc?.proofOfAddressPath,
+    kyc?.proofOfAddressFileName,
+    kyc?.proofOfAddressStored,
   ])
 
   const approved = client.kycStatus === 'verified'
@@ -95,7 +111,19 @@ function KycReview({ client }: { client: NonNullable<ReturnType<typeof loadClien
   const [reason, setReason] = useState('')
   const [reasonError, setReasonError] = useState('')
 
-  function approve() {
+  async function approve() {
+    if (supabase && client.id) {
+      const result = await reviewKycSubmission(client.id, 'approved')
+      if (result.error) {
+        setReasonError(result.error)
+        return
+      }
+      if (result.account) {
+        updateClient(result.account)
+        setRejecting(false)
+        return
+      }
+    }
     updateClient({
       ...client,
       kycStatus: 'verified',
@@ -104,10 +132,22 @@ function KycReview({ client }: { client: NonNullable<ReturnType<typeof loadClien
     setRejecting(false)
   }
 
-  function reject() {
+  async function reject() {
     if (!reason.trim()) {
       setReasonError('Enter the reason for rejection.')
       return
+    }
+    if (supabase && client.id) {
+      const result = await reviewKycSubmission(client.id, 'rejected', reason.trim())
+      if (result.error) {
+        setReasonError(result.error)
+        return
+      }
+      if (result.account) {
+        updateClient(result.account)
+        setRejecting(false)
+        return
+      }
     }
     updateClient({
       ...client,
@@ -136,6 +176,10 @@ function KycReview({ client }: { client: NonNullable<ReturnType<typeof loadClien
             <FilePreview file={back} fallbackName={kyc?.documentBackFileName} missing="Ask the client to submit the identity check again." />
           </>
         )}
+        <h2 className="text-lg font-medium">Selfie</h2>
+        <FilePreview file={selfie} fallbackName={kyc?.selfieFileName} missing="No selfie was uploaded." />
+        <h2 className="text-lg font-medium">Proof of address</h2>
+        <FilePreview file={proof} fallbackName={kyc?.proofOfAddressFileName} missing="No proof of address was uploaded." />
       </section>
 
       {kyc && (

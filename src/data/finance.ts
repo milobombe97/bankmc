@@ -1,0 +1,216 @@
+import { loadAccount, loadClients } from '../auth/session'
+import { loadPostedBalances, savePostedBalances } from './balances'
+import { ledgerKey, type Transaction } from './banking'
+import { supabase } from '../lib/supabase'
+
+export type WithdrawalRequest = {
+  id: string
+  user_id: string
+  account_code: string
+  amount: number
+  currency: string
+  payee_name: string
+  method: string
+  country: string
+  transaction_id: string
+  status: 'pending' | 'approved' | 'rejected'
+  rejection_reason: string | null
+  created_at: string
+}
+
+export async function pullAccountBalances(userId?: string) {
+  if (!supabase) return
+  const { data: auth } = await supabase.auth.getUser()
+  const target = userId || auth.user?.id
+  if (!target) return
+
+  const { data, error } = await supabase.from('accounts').select('code, balance').eq('user_id', target)
+  if (error || !data) return
+
+  const map: Record<string, number> = {}
+  for (const row of data) {
+    map[row.code as string] = Number(row.balance)
+  }
+  savePostedBalances(target, map)
+}
+
+export async function pullAllClientBalances() {
+  if (!supabase) return
+  const { data, error } = await supabase.from('accounts').select('user_id, code, balance')
+  if (error || !data) return
+  for (const row of data) {
+    const userId = row.user_id as string
+    const current = loadPostedBalances(userId) ?? {}
+    current[row.code as string] = Number(row.balance)
+    savePostedBalances(userId, current)
+  }
+}
+
+export async function pullFinancialState(userId?: string) {
+  const remote = await import('./remote')
+  const id = userId || loadAccount()?.id
+  if (!id) return
+  await pullAccountBalances(id)
+  await remote.pullTransactionsForUser(id)
+}
+
+export async function submitReceiptRecord(input: {
+  accountCode: string
+  amount: number
+  currency: string
+  storagePath: string
+  fileName: string
+  transactionId: string
+}) {
+  if (!supabase) return { ok: true as const }
+  const { data: auth } = await supabase.auth.getUser()
+  if (!auth.user) return { error: 'Sign in to upload a receipt.' }
+
+  const { error } = await supabase.from('receipts').insert({
+    user_id: auth.user.id,
+    account_code: input.accountCode,
+    amount: input.amount,
+    currency: input.currency,
+    storage_path: input.storagePath,
+    file_name: input.fileName,
+    transaction_id: input.transactionId,
+    status: 'pending',
+  })
+
+  if (error) return { error: error.message }
+  return { ok: true as const }
+}
+
+export async function reviewPayment(
+  userId: string,
+  transactionId: string,
+  decision: 'approved' | 'rejected',
+  reason?: string,
+) {
+  if (!supabase) return { localOnly: true as const }
+
+  const { data: receipt } = await supabase
+    .from('receipts')
+    .select('id')
+    .eq('user_id', userId)
+    .eq('transaction_id', transactionId)
+    .eq('status', 'pending')
+    .maybeSingle()
+
+  if (receipt?.id) {
+    const { error } = await supabase.rpc('review_receipt', {
+      p_receipt_id: receipt.id,
+      p_decision: decision === 'approved' ? 'approved' : 'rejected',
+      p_reason: decision === 'rejected' ? reason?.trim() || null : null,
+    })
+    if (error) return { error: error.message }
+  } else {
+    const { error } = await supabase.rpc('review_pending_transaction', {
+      p_user_id: userId,
+      p_transaction_id: transactionId,
+      p_decision: decision === 'approved' ? 'approved' : 'rejected',
+      p_reason: decision === 'rejected' ? reason?.trim() || null : null,
+    })
+    if (error) return { error: error.message }
+  }
+
+  await pullAccountBalances(userId)
+  await import('./remote').then((m) => m.pullTransactionsForUser(userId))
+  return { ok: true as const }
+}
+
+export async function transferToUser(fromAccountCode: string, recipientEmail: string, amount: number, memo: string) {
+  if (!supabase) return { localOnly: true as const }
+  const { data, error } = await supabase.rpc('transfer_between_users', {
+    p_from_account_code: fromAccountCode,
+    p_recipient_email: recipientEmail.trim(),
+    p_amount: amount,
+    p_memo: memo,
+  })
+  if (error) return { error: error.message }
+  const { data: auth } = await supabase.auth.getUser()
+  if (auth.user?.id) await pullFinancialState(auth.user.id)
+  return { data }
+}
+
+export async function transferBetweenOwnAccounts(fromCode: string, toCode: string, amount: number, memo: string) {
+  if (!supabase) return { localOnly: true as const }
+  const { data, error } = await supabase.rpc('transfer_between_own_accounts', {
+    p_from_account_code: fromCode,
+    p_to_account_code: toCode,
+    p_amount: amount,
+    p_memo: memo,
+  })
+  if (error) return { error: error.message }
+  const { data: auth } = await supabase.auth.getUser()
+  if (auth.user?.id) await pullFinancialState(auth.user.id)
+  return { data }
+}
+
+export async function requestWithdrawal(input: {
+  accountCode: string
+  amount: number
+  payeeName: string
+  method: string
+  country: string
+}) {
+  if (!supabase) return { localOnly: true as const }
+  const { data, error } = await supabase.rpc('request_withdrawal', {
+    p_account_code: input.accountCode,
+    p_amount: input.amount,
+    p_payee_name: input.payeeName,
+    p_method: input.method,
+    p_country: input.country,
+  })
+  if (error) return { error: error.message }
+  const { data: auth } = await supabase.auth.getUser()
+  if (auth.user?.id) await pullFinancialState(auth.user.id)
+  return { requestId: data as string }
+}
+
+export async function listWithdrawals(filter: 'pending' | 'all' = 'pending'): Promise<WithdrawalRequest[]> {
+  if (!supabase) return []
+  let query = supabase.from('withdrawal_requests').select('*').order('created_at', { ascending: false })
+  if (filter === 'pending') query = query.eq('status', 'pending')
+  const { data, error } = await query
+  if (error || !data) return []
+  return data as WithdrawalRequest[]
+}
+
+export async function reviewWithdrawal(requestId: string, decision: 'approved' | 'rejected', reason?: string) {
+  if (!supabase) return { localOnly: true as const }
+  const { error } = await supabase.rpc('review_withdrawal', {
+    p_request_id: requestId,
+    p_decision: decision === 'approved' ? 'approved' : 'rejected',
+    p_reason: decision === 'rejected' ? reason?.trim() || null : null,
+  })
+  if (error) return { error: error.message }
+
+  const row = (await supabase.from('withdrawal_requests').select('user_id').eq('id', requestId).maybeSingle()).data
+  if (row?.user_id) {
+    await pullAccountBalances(row.user_id as string)
+    await import('./remote').then((m) => m.pullTransactionsForUser(row.user_id as string))
+  }
+  await pullAllClientBalances()
+  return { ok: true as const }
+}
+
+export function mergeRemoteTransactions(userId: string, rows: Transaction[]) {
+  localStorage.setItem(ledgerKey(userId), JSON.stringify(rows))
+  window.dispatchEvent(new Event('ledger-changed'))
+}
+
+export function clientNameForId(userId: string) {
+  const client = loadClients().find((item) => item.id === userId)
+  return client ? `${client.firstName} ${client.lastName}` : userId
+}
+
+export async function fetchAvailableBalance(userId: string, accountCode: string) {
+  if (!supabase) return null
+  const { data, error } = await supabase.rpc('available_account_balance', {
+    p_user_id: userId,
+    p_account_code: accountCode,
+  })
+  if (error) return null
+  return Number(data)
+}

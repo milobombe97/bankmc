@@ -1,6 +1,7 @@
 import { type FormEvent, useEffect, useState } from 'react'
 import { useAccount } from '../../auth/useAccount'
 import { availableBalance, bankAccounts, formatMoney, recordPending } from '../../data/banking'
+import { requestWithdrawal } from '../../data/finance'
 import { keepMethod } from '../../data/payoutMethods'
 import { Button } from '../../components/Button'
 import { CountrySelect } from '../../components/CountrySelect'
@@ -26,7 +27,7 @@ export function DashboardWithdraw() {
     setMethod((current) => keepMethod(country, current))
   }, [country])
 
-  function onSubmit(event: FormEvent) {
+  async function onSubmit(event: FormEvent) {
     event.preventDefault()
     const value = Math.round(Number(amount) * 100) / 100
     if (payee.trim().length < 2) {
@@ -42,13 +43,26 @@ export function DashboardWithdraw() {
       return
     }
     const label = `${methodLabel(country, method)} · ${country}`
-    recordPending({
-      accountId: source.id,
-      name: `Withdrawal · ${payee.trim()} · ${label}`,
+    const remote = await requestWithdrawal({
+      accountCode: source.id,
+      amount: value,
+      payeeName: payee.trim(),
       method: label,
-      amount: -value,
-      category: 'Withdrawal',
+      country,
     })
+    if (remote.error) {
+      setError(remote.error)
+      return
+    }
+    if (remote.localOnly) {
+      recordPending({
+        accountId: source.id,
+        name: `Withdrawal · ${payee.trim()} · ${label}`,
+        method: label,
+        amount: -value,
+        category: 'Withdrawal',
+      })
+    }
     setPayee('')
     setAmount('')
     setError('')

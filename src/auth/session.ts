@@ -20,6 +20,15 @@ export type KycProfile = {
   documentBackFile?: StoredFile
   documentBackPath?: string
   documentBackStored?: boolean
+  selfieFileName?: string
+  selfieFile?: StoredFile
+  selfiePath?: string
+  selfieStored?: boolean
+  proofOfAddressFileName?: string
+  proofOfAddressFile?: StoredFile
+  proofOfAddressPath?: string
+  proofOfAddressStored?: boolean
+  submissionId?: string
   rejectionReason?: string
   addressLine: string
   city: string

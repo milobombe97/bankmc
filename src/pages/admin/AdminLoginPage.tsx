@@ -1,8 +1,7 @@
 import { type FormEvent, useState } from 'react'
 import { Link, Navigate, useNavigate } from 'react-router-dom'
 import { signInAdmin } from '../../auth/admins'
-import { signInStaff } from '../../data/remote'
-import { supabaseEnabled } from '../../lib/supabase'
+import { useAuth } from '../../auth/AuthContext'
 import { useAdmin } from '../../auth/useAdmin'
 import { Button } from '../../components/Button'
 import { Field } from '../../components/Field'
@@ -10,6 +9,7 @@ import { IconText, PasswordInput } from '../../components/PasswordInput'
 
 export function AdminLoginPage() {
   const admin = useAdmin()
+  const { configured, signIn, signOut } = useAuth()
   const navigate = useNavigate()
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
@@ -19,12 +19,15 @@ export function AdminLoginPage() {
 
   async function onSubmit(event: FormEvent) {
     event.preventDefault()
-    if (supabaseEnabled()) {
-      const remote = await signInStaff(email, password)
-      if (!remote.error) {
+    if (configured) {
+      const remote = await signIn(email, password)
+      if (!remote.error && (remote.account?.role === 'admin' || remote.account?.role === 'super')) {
         navigate('/admin')
         return
       }
+      await signOut()
+      setError(remote.account ? 'This email is a client account.' : remote.error ?? 'Email or password was not accepted.')
+      return
     }
     const signedIn = signInAdmin(email, password)
     if (!signedIn) {

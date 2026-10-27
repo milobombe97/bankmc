@@ -1,11 +1,13 @@
 import { Link, useNavigate } from 'react-router-dom'
-import { accountSettings, saveAccount } from '../../auth/session'
+import { useAuth } from '../../auth/AuthContext'
+import { accountSettings } from '../../auth/session'
 import { useAccount } from '../../auth/useAccount'
 import { Button } from '../../components/Button'
 import { Glyph, type FieldIconName } from '../../components/PasswordInput'
 
 export function DashboardProfile() {
   const account = useAccount()
+  const { signOut } = useAuth()
   const navigate = useNavigate()
   if (!account) return null
 
@@ -67,8 +69,7 @@ export function DashboardProfile() {
         <Button
           variant="secondary"
           onClick={() => {
-            saveAccount({ ...account, signedIn: false })
-            navigate('/signin')
+            void signOut().then(() => navigate('/signin'))
           }}
         >
           Log out

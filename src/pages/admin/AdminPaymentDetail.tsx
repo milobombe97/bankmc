@@ -3,6 +3,7 @@ import { Link, useNavigate, useParams } from 'react-router-dom'
 import { Button } from '../../components/Button'
 import { FilePreview } from '../../components/FilePreview'
 import { approvePending, bankAccounts, declinePending, formatMoney, paymentMethodName } from '../../data/banking'
+import { reviewPayment } from '../../data/finance'
 import type { StoredFile } from '../../data/files'
 import { findReceiptFile } from '../../data/fileStore'
 import { receiptPreview } from '../../data/remote'
@@ -25,6 +26,7 @@ export function AdminPaymentDetail() {
   const id = decodeURIComponent(paymentId)
   const row = reviewedPayments('pending').concat(reviewedPayments('approved'), reviewedPayments('declined')).find((item) => item.clientId === clientId && item.item.id === id)
   const [file, setFile] = useState<StoredFile | undefined>(row?.item.receiptFile)
+  const [actionError, setActionError] = useState('')
   void tick
 
   const txId = row?.item.id ?? ''
@@ -74,9 +76,18 @@ export function AdminPaymentDetail() {
 
   const account = bankAccounts.find((item) => item.id === row.item.accountId)
 
-  function decide(action: 'approve' | 'decline') {
-    if (action === 'approve') approvePending(clientId, id)
-    else declinePending(clientId, id)
+  async function decide(action: 'approve' | 'decline') {
+    setActionError('')
+    const decision = action === 'approve' ? 'approved' : 'rejected'
+    const remote = await reviewPayment(clientId, id, decision)
+    if (remote.error) {
+      setActionError(remote.error)
+      return
+    }
+    if (remote.localOnly) {
+      if (action === 'approve') approvePending(clientId, id)
+      else declinePending(clientId, id)
+    }
     navigate('/admin/payments')
   }
 
@@ -102,8 +113,9 @@ export function AdminPaymentDetail() {
       </dl>
       {row.item.status === 'pending' ? (
         <div className="flex flex-wrap gap-2">
-          <Button type="button" onClick={() => decide('approve')}>Approve</Button>
-          <Button type="button" variant="secondary" onClick={() => decide('decline')}>Decline</Button>
+          <Button type="button" onClick={() => void decide('approve')}>Approve</Button>
+          <Button type="button" variant="secondary" onClick={() => void decide('decline')}>Decline</Button>
+          {actionError ? <p className="w-full text-sm text-red-600">{actionError}</p> : null}
         </div>
       ) : (
         <p className="text-sm text-revolut-ink/60">{row.item.status === 'approved' ? 'This payment is approved.' : 'This payment is declined.'}</p>

@@ -1,7 +1,7 @@
 import { useEffect } from 'react'
 import { Navigate, Route, Routes } from 'react-router-dom'
+import { RequireAuth } from './auth/RequireAuth'
 import { loadAccount, saveAccount } from './auth/session'
-import { restoreSupabaseSession } from './data/remote'
 import { BusinessPage } from './pages/BusinessPage'
 import { CompanyPage } from './pages/CompanyPage'
 import { KycPage } from './pages/auth/KycPage'
@@ -25,6 +25,7 @@ import { AdminNotificationDetail } from './pages/admin/AdminNotificationDetail'
 import { AdminNotifications } from './pages/admin/AdminNotifications'
 import { AdminPaymentDetail } from './pages/admin/AdminPaymentDetail'
 import { AdminPaymentsPage } from './pages/admin/AdminPaymentsPage'
+import { AdminWithdrawalsPage } from './pages/admin/AdminWithdrawalsPage'
 import { AdminHome } from './pages/admin/AdminHome'
 import { AdminLayout } from './pages/admin/AdminLayout'
 import { AdminLoginPage } from './pages/admin/AdminLoginPage'
@@ -48,13 +49,10 @@ if (storedAccount?.signedIn && storedAccount.email.toLowerCase() === 'alex.morga
 
 export default function App() {
   useEffect(() => {
-    void (async () => {
-      await restoreSupabaseSession()
-      const account = loadAccount()
-      if (account?.signedIn && account.email.toLowerCase() === 'alex.morgan@example.com') {
-        saveAccount({ ...account, signedIn: false })
-      }
-    })()
+    const account = loadAccount()
+    if (account?.signedIn && account.email.toLowerCase() === 'alex.morgan@example.com') {
+      saveAccount({ ...account, signedIn: false })
+    }
   }, [])
 
   return (
@@ -79,13 +77,21 @@ export default function App() {
       <Route path="/legal" element={<TopicPage topic="legal" />} />
       <Route path="/login" element={<Navigate to="/signin" replace />} />
       <Route path="/admin/login" element={<AdminLoginPage />} />
-      <Route path="/admin" element={<AdminLayout />}>
+      <Route
+        path="/admin"
+        element={
+          <RequireAuth area="admin">
+            <AdminLayout />
+          </RequireAuth>
+        }
+      >
         <Route index element={<AdminHome />} />
         <Route path="clients/:id" element={<AdminClientPage />} />
         <Route path="kyc" element={<AdminKycPage />} />
         <Route path="kyc/:id" element={<AdminKycDetail />} />
         <Route path="payments" element={<AdminPaymentsPage />} />
         <Route path="payments/:clientId/:paymentId" element={<AdminPaymentDetail />} />
+        <Route path="withdrawals" element={<AdminWithdrawalsPage />} />
         <Route path="notifications" element={<AdminNotifications />} />
         <Route path="notifications/:id" element={<AdminNotificationDetail />} />
         <Route path="settings" element={<AdminSettingsPage />} />
@@ -96,7 +102,14 @@ export default function App() {
       <Route path="/signup" element={<SignUpPage />} />
       <Route path="/kyc" element={<KycPage />} />
       <Route path="/account" element={<Navigate to="/dashboard" replace />} />
-      <Route path="/dashboard" element={<DashboardLayout />}>
+      <Route
+        path="/dashboard"
+        element={
+          <RequireAuth area="customer">
+            <DashboardLayout />
+          </RequireAuth>
+        }
+      >
         <Route index element={<DashboardHome />} />
         <Route path="topup" element={<DashboardTopUp />} />
         <Route path="withdraw" element={<DashboardWithdraw />} />

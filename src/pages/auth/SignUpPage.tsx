@@ -1,8 +1,7 @@
 import { type FormEvent, useState } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
-import { loadAccount, saveAccount } from '../../auth/session'
-import { signUpWithSupabase } from '../../data/remote'
-import { supabaseEnabled } from '../../lib/supabase'
+import { useAuth } from '../../auth/AuthContext'
+import { loadAccount } from '../../auth/session'
 import { Button } from '../../components/Button'
 import { Field } from '../../components/Field'
 import { PhoneInput } from '../../components/PhoneInput'
@@ -27,6 +26,7 @@ const empty: FormState = {
 
 export function SignUpPage() {
   const navigate = useNavigate()
+  const { signUp } = useAuth()
   const [form, setForm] = useState<FormState>(() => {
     const existing = loadAccount()
     if (!existing || existing.kycStatus !== 'not_started') return empty
@@ -77,16 +77,11 @@ export function SignUpPage() {
       signedIn: true,
       kycStatus: 'not_started' as const,
     }
-    if (supabaseEnabled() && !editing) {
-      const remote = await signUpWithSupabase(next)
-      if (remote.error) {
-        setFormError(remote.error)
-        return
-      }
-      navigate('/kyc')
+    const remote = await signUp(next)
+    if (remote.error) {
+      setFormError(remote.error)
       return
     }
-    saveAccount(next)
     navigate('/kyc')
   }
 

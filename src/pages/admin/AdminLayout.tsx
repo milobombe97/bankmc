@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from 'react'
 import { NavLink, Navigate, Outlet, useLocation, useNavigate } from 'react-router-dom'
-import { signOutAdmin } from '../../auth/admins'
+import { useAuth } from '../../auth/AuthContext'
 import { useAdmin } from '../../auth/useAdmin'
 import { Glyph, type FieldIconName } from '../../components/PasswordInput'
 import { buildAdminNotifications, loadAdminReadIds } from '../../data/adminNotifications'
@@ -10,6 +10,7 @@ const links: { to: string; label: string; icon: FieldIconName; end?: boolean; su
   { to: '/admin', label: 'Clients', icon: 'user', end: true },
   { to: '/admin/kyc', label: 'KYC', icon: 'shield' },
   { to: '/admin/payments', label: 'Payments', icon: 'banknote' },
+  { to: '/admin/withdrawals', label: 'Withdrawals', icon: 'withdraw' },
   { to: '/admin/notifications', label: 'Notifications', icon: 'bell' },
   { to: '/admin/settings', label: 'Profile', icon: 'user' },
   { to: '/admin/team', label: 'Admins', icon: 'lock', superOnly: true },
@@ -17,6 +18,7 @@ const links: { to: string; label: string; icon: FieldIconName; end?: boolean; su
 
 export function AdminLayout() {
   const admin = useAdmin()
+  const { signOut } = useAuth()
   const navigate = useNavigate()
   const location = useLocation()
   const [menuOpen, setMenuOpen] = useState(false)
@@ -109,8 +111,7 @@ export function AdminLayout() {
           type="button"
           className="mt-auto inline-flex items-center gap-2 rounded-xl px-3 py-2 text-left text-sm text-revolut-ink/55 hover:bg-revolut-muted"
           onClick={() => {
-            signOutAdmin()
-            navigate('/admin/login')
+            void signOut().then(() => navigate('/admin/login'))
           }}
         >
           <Glyph name="logout" />

@@ -1,8 +1,6 @@
 import { type FormEvent, useState } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
-import { loadAccount, saveAccount } from '../../auth/session'
-import { signInWithSupabase } from '../../data/remote'
-import { supabaseEnabled } from '../../lib/supabase'
+import { useAuth } from '../../auth/AuthContext'
 import { Button } from '../../components/Button'
 import { Field } from '../../components/Field'
 import { IconText, PasswordInput } from '../../components/PasswordInput'
@@ -10,30 +8,23 @@ import { AuthLayout } from './AuthLayout'
 
 export function SignInPage() {
   const navigate = useNavigate()
+  const { signIn } = useAuth()
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
   const [error, setError] = useState('')
 
   async function onSubmit(event: FormEvent) {
     event.preventDefault()
-    if (supabaseEnabled()) {
-      const remote = await signInWithSupabase(email, password)
-      if (!remote.error && remote.account) {
-        if (remote.account.kycStatus === 'not_started' || remote.account.kycStatus === 'rejected') {
-          navigate('/kyc')
-          return
-        }
-        navigate(remote.account.role === 'admin' || remote.account.role === 'super' ? '/admin' : '/dashboard')
-        return
-      }
-    }
-    const account = loadAccount()
-    if (!account || account.email.toLowerCase() !== email.trim().toLowerCase() || account.password !== password) {
-      setError(supabaseEnabled() ? 'Email or password was not accepted.' : 'Email or password does not match the account on this browser.')
+    const result = await signIn(email, password)
+    if (result.error || !result.account) {
+      setError(result.error ?? 'Email or password was not accepted.')
       return
     }
-    saveAccount({ ...account, signedIn: true })
-    if (account.kycStatus === 'not_started' || account.kycStatus === 'rejected') {
+    if (result.account.role === 'admin' || result.account.role === 'super') {
+      navigate('/admin')
+      return
+    }
+    if (result.account.kycStatus === 'not_started' || result.account.kycStatus === 'rejected') {
       navigate('/kyc')
       return
     }

@@ -1,4 +1,5 @@
 import { loadAccount } from '../auth/session'
+import { loadPostedBalances } from './balances'
 import { receiptFileKey, saveStoredFile } from './fileStore'
 import type { StoredFile } from './files'
 
@@ -152,8 +153,17 @@ export async function attachReceipt(id: string, receipt: string | StoredFile, cl
     await saveStoredFile(receiptFileKey(activeId, id), receipt)
     const remote = await import('./remote')
     // Pass the amount here! If amount isn't passed directly, grab it from the current transaction item
-    const txAmount = amount || extraTransactions(activeId).find(t => t.id === id)?.amount || 0
-    receiptPath = await remote.uploadReceipt(activeId, id, receipt, txAmount)
+    const tx = extraTransactions(activeId).find((t) => t.id === id)
+    const txAmount = amount ?? tx?.amount ?? 0
+    const account = bankAccounts.find((item) => item.id === tx?.accountId)
+    receiptPath = await remote.uploadReceipt(
+      activeId,
+      id,
+      receipt,
+      txAmount,
+      tx?.accountId,
+      account?.currency,
+    )
   }
   
   const hasBytes = typeof receipt !== 'string' && Boolean(receipt.dataUrl)
@@ -207,6 +217,14 @@ export function declinePending(clientId: string, id: string) {
   writeExtra(
     extraTransactions(clientId).map((item) => (item.id === id ? { ...item, status: 'declined' as const } : item)),
     clientId,
+  )
+}
+
+export function markReceiptSent(id: string, clientId?: string) {
+  const activeId = clientId || loadAccount()?.id || 'primary'
+  writeExtra(
+    extraTransactions(activeId).map((item) => (item.id === id ? { ...item, receiptSent: true } : item)),
+    activeId,
   )
 }
 
@@ -274,6 +292,10 @@ export function formatMoney(amount: number, currency: Currency) {
 }
 
 export function accountBalance(account: BankAccount, clientId?: string) {
+  const posted = loadPostedBalances(clientId)
+  if (posted && posted[account.id] !== undefined) {
+    return posted[account.id]
+  }
   const moved = extraTransactions(clientId)
     .filter((item) => item.accountId === account.id && item.status !== 'pending' && item.status !== 'declined')
     .reduce((sum, item) => sum + item.amount, 0)

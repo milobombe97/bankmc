@@ -2,7 +2,7 @@ import { type FormEvent, useState } from 'react'
 import { readStoredFile, type StoredFile } from '../../data/files'
 import { Navigate, useNavigate } from 'react-router-dom'
 import { loadAccount, saveAccount, type KycProfile } from '../../auth/session'
-import { storeKycDocuments } from '../../data/remote'
+import { storeKycDocuments, submitKycSubmission } from '../../data/remote'
 import { Button } from '../../components/Button'
 import { CountrySelect } from '../../components/CountrySelect'
 import { Field } from '../../components/Field'
@@ -86,19 +86,33 @@ export function KycPage() {
         setError('Upload the front and the back.')
         return
       }
+      if (!form.selfieFileName) {
+        setError('Upload a clear selfie so we can match your face to your ID.')
+        return
+      }
     }
     if (step === 2) {
       if (!form.addressLine.trim() || !form.city.trim() || !form.postcode.trim()) {
         setError('Enter your full home address.')
         return
       }
+      if (!form.proofOfAddressFileName) {
+        setError('Upload a recent bill or bank statement as proof of address.')
+        return
+      }
       try {
-        const kyc = await storeKycDocuments(account!.id || 'primary', form)
-        saveAccount({
+        const result = await submitKycSubmission(account!, form)
+        if (result.error) {
+          setError(result.error)
+          return
+        }
+        const kyc = result.kyc ?? form
+        const next = result.account ?? {
           ...account!,
-          kyc: kyc ? { ...kyc, rejectionReason: undefined } : kyc,
-          kycStatus: 'in_review',
-        })
+          kyc: { ...kyc, rejectionReason: undefined },
+          kycStatus: 'in_review' as const,
+        }
+        saveAccount(next)
       } catch {
         setError('The identity photos could not be saved. Use a photo or a PDF and try again.')
         return
@@ -233,6 +247,12 @@ export function KycPage() {
                 />
               </>
             )}
+            <UploadField
+              label="Selfie"
+              hint="Hold your phone at eye level. No sunglasses or hats."
+              fileName={form.selfieFileName ?? ''}
+              onFile={(file) => setForm((current) => ({ ...current, selfieFileName: file.name, selfieFile: file }))}
+            />
           </>
         )}
 
@@ -267,6 +287,12 @@ export function KycPage() {
             <Field label="Country">
               <CountrySelect value={form.country} onChange={(value) => set('country', value)} />
             </Field>
+            <UploadField
+              label="Proof of address"
+              hint="Utility bill or bank statement from the last 3 months (PDF or photo)."
+              fileName={form.proofOfAddressFileName ?? ''}
+              onFile={(file) => setForm((current) => ({ ...current, proofOfAddressFileName: file.name, proofOfAddressFile: file }))}
+            />
           </>
         )}
 

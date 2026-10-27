@@ -18,7 +18,9 @@ export function receiptFileKey(clientId: string, transactionId: string) {
   return `receipt:${clientId || 'primary'}:${transactionId}`
 }
 
-export function kycFileKey(clientId: string, side: 'front' | 'back') {
+export type KycFileKind = 'front' | 'back' | 'selfie' | 'proof'
+
+export function kycFileKey(clientId: string, side: KycFileKind) {
   return `kyc:${clientId || 'primary'}:${side}`
 }
 

@@ -1,6 +1,7 @@
 import { type FormEvent, useEffect, useState } from 'react'
 import { useAccount } from '../../auth/useAccount'
 import { accountBalance, availableBalance, bankAccounts, formatMoney, recordPending } from '../../data/banking'
+import { transferToUser } from '../../data/finance'
 import { keepMethod } from '../../data/payoutMethods'
 import { Button } from '../../components/Button'
 import { CountrySelect } from '../../components/CountrySelect'
@@ -25,10 +26,11 @@ export function DashboardPayments() {
     setMethod((current) => keepMethod(country, current))
   }, [country])
 
-  function onSubmit(event: FormEvent) {
+  async function onSubmit(event: FormEvent) {
     event.preventDefault()
-    const value = Number(amount)
-    if (recipient.trim().length < 2) {
+    const value = Math.round(Number(amount) * 100) / 100
+    const target = recipient.trim()
+    if (target.length < 2) {
       setError('Enter who you are paying.')
       return
     }
@@ -41,12 +43,24 @@ export function DashboardPayments() {
       return
     }
     const label = `${methodLabel(country, method)} · ${country}`
-    recordPending({
-      accountId: source.id,
-      name: `${recipient.trim()} · ${label}`,
-      method: label,
-      amount: -value,
-    })
+    if (target.includes('@')) {
+      const result = await transferToUser(source.id, target, value, `${target} · ${label}`)
+      if (result.error) {
+        setError(result.error)
+        return
+      }
+      if (result.localOnly) {
+        setError('Connect Supabase to send money to another Nevolute customer by email.')
+        return
+      }
+    } else {
+      recordPending({
+        accountId: source.id,
+        name: `${target} · ${label}`,
+        method: label,
+        amount: -value,
+      })
+    }
     setRecipient('')
     setAmount('')
     setError('')
@@ -57,7 +71,7 @@ export function DashboardPayments() {
       <div>
         <h1 className="text-3xl font-medium tracking-[-0.04em]">Send money</h1>
         <p className="mt-2 text-sm text-revolut-ink/60">
-          Choose the country you are sending to. The request stays pending until support approves a receipt.
+          Send instantly to another Nevolute customer using their email, or enter a name for an external payment that stays pending until support approves it.
         </p>
         <form className="mt-8 space-y-4" onSubmit={onSubmit}>
           <Field label="From">
@@ -76,7 +90,7 @@ export function DashboardPayments() {
             <IconText
               icon="user"
               value={recipient}
-              placeholder="Name or @username"
+              placeholder="Email for Nevolute transfer, or payee name"
               onChange={(event) => setRecipient(event.target.value)}
             />
           </Field>

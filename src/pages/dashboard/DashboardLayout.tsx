@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from 'react'
 import { Link, NavLink, Navigate, Outlet, useLocation, useNavigate } from 'react-router-dom'
-import { saveAccount } from '../../auth/session'
+import { useAuth } from '../../auth/AuthContext'
 import { ReceiptDock } from '../../components/ReceiptDock'
 import { useAccount } from '../../auth/useAccount'
 import { loadTransactions } from '../../data/banking'
@@ -19,6 +19,7 @@ const links = [
 
 export function DashboardLayout() {
   const account = useAccount()
+  const { signOut } = useAuth()
   const navigate = useNavigate()
   const location = useLocation()
   const [menuOpen, setMenuOpen] = useState(false)
@@ -57,8 +58,7 @@ export function DashboardLayout() {
           type="button"
           className="mt-6 text-left text-sm font-medium underline-offset-4 hover:underline"
           onClick={() => {
-            saveAccount({ ...account, signedIn: false })
-            navigate('/signin')
+            void signOut().then(() => navigate('/signin'))
           }}
         >
           Log out
@@ -146,8 +146,7 @@ export function DashboardLayout() {
           type="button"
           className="mt-auto inline-flex items-center gap-2 rounded-xl px-3 py-2 text-left text-sm text-revolut-ink/55 hover:bg-revolut-muted hover:text-revolut-ink"
           onClick={() => {
-            saveAccount({ ...account, signedIn: false })
-            navigate('/signin')
+            void signOut().then(() => navigate('/signin'))
           }}
         >
           <DashIcon name="logout" />

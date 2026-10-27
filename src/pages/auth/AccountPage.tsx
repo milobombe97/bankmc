@@ -1,5 +1,5 @@
 import { Navigate, useNavigate } from 'react-router-dom'
-import { saveAccount } from '../../auth/session'
+import { useAuth } from '../../auth/AuthContext'
 import { useAccount } from '../../auth/useAccount'
 import { Button } from '../../components/Button'
 import { AuthLayout } from './AuthLayout'
@@ -25,6 +25,7 @@ const statusCopy = {
 
 export function AccountPage() {
   const account = useAccount()
+  const { signOut } = useAuth()
   const navigate = useNavigate()
   if (!account) return <Navigate to="/signin" replace />
 
@@ -63,8 +64,7 @@ export function AccountPage() {
         <Button
           variant="secondary"
           onClick={() => {
-            saveAccount({ ...account, signedIn: false })
-            navigate('/signin')
+            void signOut().then(() => navigate('/signin'))
           }}
         >
           Log out
