@@ -1,81 +1,67 @@
-import { Button } from '../components/Button'
-import { Footer } from '../components/Footer'
-import { Header } from '../components/Header'
-
-const features = [
-  {
-    title: 'Business accounts',
-    description: 'Open an account in minutes. Send, receive, and hold money in multiple currencies.',
-  },
-  {
-    title: 'Team expenses',
-    description: 'Issue cards to your team, set limits, and track spending in real time.',
-  },
-  {
-    title: 'Integrations',
-    description: 'Connect accounting tools and automate reconciliation with your existing stack.',
-  },
-  {
-    title: 'Global payments',
-    description: 'Pay suppliers and partners abroad with competitive FX and transparent fees.',
-  },
-]
+import { MarketingSubPage } from './MarketingSubPage'
 
 export function BusinessPage() {
   return (
-    <div className="bg-white">
-      <section className="relative overflow-hidden bg-revolut-ink pb-20 pt-24 text-white lg:pb-28 lg:pt-28">
-        <div
-          className="pointer-events-none absolute -right-1/4 top-0 h-full w-2/3 bg-gradient-to-l from-revolut-sky-deep/30 to-transparent"
-          aria-hidden
-        />
-        <Header theme="dark" />
-        <div className="relative mx-auto max-w-7xl px-5 lg:px-8">
-          <p className="text-sm font-medium uppercase tracking-wider text-white/50">Nevolute Inc. Business</p>
-          <h1 className="mt-4 max-w-3xl text-5xl font-semibold tracking-tight sm:text-6xl">
-            Finance that moves as fast as your business
-          </h1>
-          <p className="mt-6 max-w-xl text-lg text-white/75">
-            Accounts, cards, and payments built for startups, scale-ups, and enterprises — all in
-            one place.
-          </p>
-          <div className="mt-10 flex flex-wrap gap-3">
-            <Button href="/signup">Open a Business account</Button>
-            <Button variant="ghost" className="border border-white/30" href="/help">
-              Talk to sales
-            </Button>
-          </div>
-        </div>
-      </section>
-
-      <section className="py-20 lg:py-28">
-        <div className="mx-auto max-w-7xl px-5 lg:px-8">
-          <h2 className="text-3xl font-semibold sm:text-4xl">Everything you need to run finances</h2>
-          <div className="mt-12 grid gap-6 sm:grid-cols-2">
-            {features.map((f) => (
-              <article
-                key={f.title}
-                className="rounded-3xl border border-revolut-line bg-revolut-muted/50 p-8"
-              >
-                <h3 className="text-xl font-semibold">{f.title}</h3>
-                <p className="mt-3 text-revolut-ink/70">{f.description}</p>
-              </article>
-            ))}
-          </div>
-        </div>
-      </section>
-
-      <section className="border-t border-revolut-line bg-revolut-muted py-20">
-        <div className="mx-auto max-w-3xl px-5 text-center lg:px-8">
-          <h2 className="text-3xl font-semibold">Trusted by 500,000+ businesses</h2>
-          <p className="mt-4 text-revolut-ink/70">
-            From sole traders to global teams — scale your operations without scaling complexity.
-          </p>
-          <Button className="mt-8" href="/signup">Get started</Button>
-        </div>
-      </section>
-
-      <Footer />
-    </div>
+    <MarketingSubPage
+      eyebrow="Nevolute Inc. Business"
+      title="Accounts, cards, and payments for a company"
+      lead="Nevolute Inc. Business keeps company money, team spend, and customer payments in one account. Pricing sits with the plans page."
+      heroTheme="dark"
+      facts={[
+        { label: 'Accounts', value: 'Multi-currency' },
+        { label: 'Cards', value: 'For the team' },
+        { label: 'Payments', value: 'Online and in person' },
+        { label: 'Pricing', value: 'On Plans' },
+      ]}
+      sections={[
+        {
+          kicker: 'Essentials',
+          title: 'The account the business runs on',
+          summary: 'Multi-currency accounts, transfers, exchange, and FX forwards.',
+          items: [
+            { title: 'Multi-currency accounts', body: 'Hold USD, GBP, and EUR without opening a separate bank for each currency.' },
+            { title: 'Transfers', body: 'Pay suppliers from the business account. External payments stay pending until Nevolute Inc. reviews them.' },
+            { title: 'Exchange', body: 'Convert between the currencies on the account. Premium-style allowances are listed on the plans page.' },
+            { title: 'FX forwards', body: 'Lock a rate for a later payment. The contract details are agreed before the payment is sent.' },
+          ],
+        },
+        {
+          kicker: 'Spend management',
+          title: 'Cards and bills for the team',
+          summary: 'Corporate cards, expenses, bills, and Titan.',
+          items: [
+            { title: 'Corporate cards', body: 'A card per person, with a limit set by the business rather than by the cardholder.' },
+            { title: 'Expenses', body: 'Spend lands on the business account with a receipt, so it can be reviewed before it is treated as final.' },
+            { title: 'Bills', body: 'Supplier bills stay in a list next to the balance instead of in a separate inbox.' },
+            { title: 'Titan', body: 'The higher-control spend view for larger teams: limits, roles, and a clearer approval trail.' },
+          ],
+        },
+        {
+          kicker: 'Merchant',
+          title: 'Getting paid',
+          summary: 'Accept payments, the in-person store, online payments, and Nevolute Pay.',
+          items: [
+            { title: 'Accept payments', body: 'Take a payment into the business account from a customer.' },
+            { title: 'In-person store', body: 'A checkout for a counter or a market, settled into the same account.' },
+            { title: 'Online payments', body: 'A checkout for a site or an invoice link.' },
+            { title: 'Nevolute Pay', body: 'The Nevolute Inc. button on a checkout, paid from a Nevolute Inc. account.' },
+          ],
+        },
+        {
+          kicker: 'Platform, treasury, resources',
+          title: 'The rest of the business menu',
+          summary: 'Reporting, APIs, savings, crypto, pricing, and help.',
+          items: [
+            { title: 'Analytics & reporting', body: 'Money in, money out, and unpaid bills on one report.' },
+            { title: 'APIs and integrations', body: 'Connect the account to accounting tools. This demo does not issue a live API key.' },
+            { title: 'Security & controls', body: 'Roles decide who can send, who can see cards, and who can approve a payment.' },
+            { title: 'Savings and crypto', body: 'Treasury savings stay on the business account. Crypto uses the same crypto page as personal accounts.' },
+            { title: 'Pricing and help', body: 'Business pricing is on the plans page. Customer help, customer stories, and guides come back to this page and to support@nevolute.inc.' },
+          ],
+        },
+      ]}
+      ctaLabel="Open a business account"
+      ctaHref="/signup"
+    />
   )
 }

@@ -1,8 +1,11 @@
+import type { PageFact, PageSection } from '../pages/MarketingSubPage'
+
 export type Topic = {
   eyebrow: string
   title: string
   lead: string
-  bullets: string[]
+  facts: PageFact[]
+  sections: PageSection[]
   ctaLabel: string
   ctaHref: string
   heroTheme?: 'dark' | 'light' | 'gradient'
@@ -11,26 +14,52 @@ export type Topic = {
 export const topics: Record<string, Topic> = {
   accounts: {
     eyebrow: 'Accounts',
-    title: 'Everyday accounts from Nevolute Inc.',
-    lead: 'Hold, spend, and sort money in personal, joint, and professional accounts. New customers start with a clear balance and their own ledger.',
-    bullets: [
-      'Personal, joint, and professional accounts',
-      'Balances in USD, GBP, and EUR',
-      'Account details you can copy when you need them',
-      'Activity that stays with your own profile',
+    title: 'Accounts for how you hold money',
+    lead: 'Personal, joint, and professional accounts from Nevolute Inc. Each one has its own balance, details, and activity.',
+    facts: [
+      { label: 'Account types', value: '3' },
+      { label: 'Currencies', value: 'USD GBP EUR' },
+      { label: 'Opening balance', value: '0' },
+      { label: 'Bank', value: 'Nevolute Inc.' },
+    ],
+    sections: [
+      {
+        kicker: 'In this menu',
+        title: 'Pick the account that fits',
+        summary: 'The Accounts menu covers everyday banking and the savings account that sits beside it.',
+        items: [
+          { title: 'Bank account', body: 'A personal account for salary, spending, and day-to-day transfers. Details can be copied from the dashboard.' },
+          { title: 'Joint account', body: 'A shared view for two people. Activity stays on the account, with the same currencies as a personal account.' },
+          { title: 'Professional account', body: 'Separated from personal spending so work payments and expenses are easier to follow.' },
+          { title: 'Savings account', body: 'Instant Access Savings, paid daily. The rate shown in the app is variable and depends on the plan.' },
+        ],
+      },
     ],
     ctaLabel: 'Open an account',
     ctaHref: '/signup',
   },
   transfers: {
     eyebrow: 'Transfers',
-    title: 'Send and receive with Nevolute Inc.',
-    lead: 'Move money between your own accounts, or send it to someone else. External payments stay pending until Nevolute Inc. reviews them.',
-    bullets: [
-      'Transfers between your own accounts',
-      'International and local send options',
-      'Methods that follow the destination country',
-      'A receipt when a payment needs review',
+    title: 'Send, receive, and move money',
+    lead: 'Transfers between your own Nevolute Inc. accounts post straight away. Sending outside the bank stays pending until it is reviewed.',
+    facts: [
+      { label: 'Own accounts', value: 'Instant' },
+      { label: 'External send', value: 'Pending' },
+      { label: 'Methods', value: 'By country' },
+      { label: 'Receipts', value: 'When needed' },
+    ],
+    sections: [
+      {
+        kicker: 'In this menu',
+        title: 'How money leaves the account',
+        summary: 'Send & Receive and International Transfers both land here. The method list follows the destination country.',
+        items: [
+          { title: 'Send & receive', body: 'Pay someone by name, or receive money into the account details on your dashboard.' },
+          { title: 'International transfers', body: 'Choose the country first. The available methods change with that country, including bank transfer and local options.' },
+          { title: 'Between your accounts', body: 'Moving USD to USD, or the same currency between your own accounts, does not wait for review.' },
+          { title: 'Receipts', body: 'A payment that needs review can carry a receipt. Declined payments do not change the posted balance.' },
+        ],
+      },
     ],
     ctaLabel: 'Open an account',
     ctaHref: '/signup',
@@ -38,26 +67,52 @@ export const topics: Record<string, Topic> = {
   },
   spend: {
     eyebrow: 'Spending',
-    title: 'Spending tools that stay in one place',
-    lead: 'Cards, linked accounts, and everyday money management sit beside your Nevolute Inc. balance, so spending is easier to follow.',
-    bullets: [
-      'Physical and virtual cards',
-      'Points on eligible spend',
-      'Linked accounts and shops',
-      'Spending grouped by category',
+    title: 'Spending, points, and linked accounts',
+    lead: 'Money management, points, linked accounts, and shops sit next to the Nevolute Inc. balance so spending is easier to read.',
+    facts: [
+      { label: 'Cards', value: 'Physical + virtual' },
+      { label: 'Points', value: 'On eligible spend' },
+      { label: 'Linked accounts', value: 'In one view' },
+      { label: 'Categories', value: 'From activity' },
+    ],
+    sections: [
+      {
+        kicker: 'In this menu',
+        title: 'What the spending menu covers',
+        summary: 'Cards have their own page. The rest of Smart Spending is grouped here.',
+        items: [
+          { title: 'Money management', body: 'Balances, recent activity, and spending by category on the home dashboard.' },
+          { title: 'Points', body: 'Points apply to eligible card spend. The rate follows the subscription you choose.' },
+          { title: 'Linked accounts', body: 'See outside accounts beside Nevolute Inc. so the full picture is not split across apps.' },
+          { title: 'Shops', body: 'Offers and partners that sit with the plan, separate from the posted account balance.' },
+        ],
+      },
     ],
     ctaLabel: 'See cards',
     ctaHref: '/cards',
   },
   travel: {
     eyebrow: 'Travel',
-    title: 'Travel extras with Nevolute Inc.',
-    lead: 'Lounge access and travel cover sit with the plan you choose. Availability and benefits depend on the plan.',
-    bullets: [
-      'Lounge access on selected plans',
-      'Travel cover explained before you buy',
-      'Spend abroad from the same account',
-      'Plan comparison before you upgrade',
+    title: 'Lounges and insurance',
+    lead: 'Lounge access and travel cover are part of the paid Nevolute Inc. subscriptions. They are not included on Standard.',
+    facts: [
+      { label: 'Lounges', value: 'Metal and Ultra' },
+      { label: 'Insurance', value: 'Paid plans' },
+      { label: 'Spend abroad', value: 'Same account' },
+      { label: 'Compare', value: 'On Plans' },
+    ],
+    sections: [
+      {
+        kicker: 'In this menu',
+        title: 'Travel benefits, by plan',
+        summary: 'Global Finances sends lounges and insurance here. International transfers stay on the transfers page.',
+        items: [
+          { title: 'Lounges', body: 'Metal includes lounge access. Ultra extends that to unlimited visits. Standard, Plus, and Premium do not include lounges.' },
+          { title: 'Insurance', body: 'Travel medical cover starts on Premium. Metal adds travel insurance. Ultra adds cancellation cover.' },
+          { title: 'Spending abroad', body: 'You spend from the same account. Plus raises the overseas limit. Premium adds an unlimited exchange allowance.' },
+          { title: 'Before you upgrade', body: 'The plans page lists the price and the benefits side by side so the difference is visible before you subscribe.' },
+        ],
+      },
     ],
     ctaLabel: 'Compare plans',
     ctaHref: '/plans',
@@ -65,13 +120,26 @@ export const topics: Record<string, Topic> = {
   },
   crypto: {
     eyebrow: 'Crypto',
-    title: 'Crypto with Nevolute Inc.',
-    lead: 'Buy, sell, and move crypto from the same Nevolute Inc. account you use for everyday money. This is a demo of the flow, not a live exchange.',
-    bullets: [
-      'Crypto as a send and withdraw method',
-      'Nevolute Ramp for moving between cash and crypto',
-      'Nevolute X for the exchange view',
-      'No live wallet keys are stored in this demo',
+    title: 'Crypto next to everyday money',
+    lead: 'Nevolute Ramp and Nevolute X are the crypto views inside Nevolute Inc. This demo does not store live wallet keys.',
+    facts: [
+      { label: 'Ramp', value: 'Cash and crypto' },
+      { label: 'Nevolute X', value: 'Exchange view' },
+      { label: 'Send', value: 'A payment method' },
+      { label: 'Keys', value: 'Not stored' },
+    ],
+    sections: [
+      {
+        kicker: 'In this menu',
+        title: 'The crypto menu',
+        summary: 'Footer and business treasury both point at this page. It describes the demo flow, not a live exchange.',
+        items: [
+          { title: 'Crypto', body: 'Crypto can be chosen as a send or withdraw method when that option is available for the country.' },
+          { title: 'Nevolute Ramp', body: 'The on-ramp and off-ramp between the account balance and crypto. No live order is placed in this demo.' },
+          { title: 'Nevolute X', body: 'The exchange view for prices and pairs. It sits beside the account instead of in a separate product.' },
+          { title: 'What is not stored', body: 'Wallet keys, seed phrases, and exchange credentials are not saved in the browser or in the account profile.' },
+        ],
+      },
     ],
     ctaLabel: 'Open an account',
     ctaHref: '/signup',
@@ -79,26 +147,52 @@ export const topics: Record<string, Topic> = {
   },
   mobile: {
     eyebrow: 'Mobile',
-    title: 'Stay connected with Nevolute Inc.',
-    lead: 'Mobile and data plans are part of the wider Nevolute Inc. offer. Pick a plan, then manage it beside your accounts.',
-    bullets: [
-      'Mobile plans for everyday use',
-      'Data plans for travel',
-      'One login for money and connectivity',
-      'Plan details before you switch',
+    title: 'Mobile and data plans',
+    lead: 'Connectivity from Nevolute Inc. sits with the same login as the bank account. Plans and data are chosen before anything is switched on.',
+    facts: [
+      { label: 'Mobile plans', value: 'Everyday' },
+      { label: 'Data plans', value: 'Travel' },
+      { label: 'Login', value: 'One account' },
+      { label: 'Billing', value: 'With the plan' },
+    ],
+    sections: [
+      {
+        kicker: 'In this menu',
+        title: 'Connectivity, in two lines',
+        summary: 'The footer groups mobile and data here. Ultra is the subscription that includes global data.',
+        items: [
+          { title: 'Mobile plans', body: 'A phone plan managed next to the account, with the price shown before you start.' },
+          { title: 'Data plans', body: 'Travel data for a trip, separate from the everyday mobile plan.' },
+          { title: 'Global data', body: 'Included with Ultra. The other subscriptions do not add a data allowance.' },
+          { title: 'One login', body: 'The same Nevolute Inc. profile opens the account, the cards, and the connectivity plan.' },
+        ],
+      },
     ],
     ctaLabel: 'Compare plans',
     ctaHref: '/plans',
   },
   help: {
     eyebrow: 'Help',
-    title: 'Help from Nevolute Inc.',
-    lead: 'Questions about an account, a payment, or the product go to the Nevolute Inc. support team. This demo does not connect to a live help desk.',
-    bullets: [
-      'Contact support@nevolute.inc',
-      'Help topics for accounts, cards, and payments',
-      'Status of reviews shown in your account',
-      'Developer notes for the demo API surface',
+    title: 'Contact, status, and the API',
+    lead: 'Help from Nevolute Inc. covers the account, payments, and this demo. Support email is support@nevolute.inc.',
+    facts: [
+      { label: 'Support', value: 'support@nevolute.inc' },
+      { label: 'Reviews', value: 'In the account' },
+      { label: 'Status', value: 'Shown in app' },
+      { label: 'API', value: 'Demo only' },
+    ],
+    sections: [
+      {
+        kicker: 'In this menu',
+        title: 'Where each help link goes',
+        summary: 'Contact, the help centre, system status, and the developer note all use this page.',
+        items: [
+          { title: 'Contact us', body: 'Email support@nevolute.inc. Payment declines in the app also point to that address.' },
+          { title: 'Help centre', body: 'Accounts, cards, transfers, identity checks, and subscriptions are explained on their own pages in this menu.' },
+          { title: 'System status', body: 'A pending payment, an identity check, or a declined receipt shows its status on the account. There is no separate status board.' },
+          { title: 'Developers API', body: 'The demo does not publish a public API key. Account data stays with the signed-in profile.' },
+        ],
+      },
     ],
     ctaLabel: 'Email support',
     ctaHref: 'mailto:support@nevolute.inc',
@@ -106,13 +200,27 @@ export const topics: Record<string, Topic> = {
   },
   legal: {
     eyebrow: 'Legal',
-    title: 'Legal information for Nevolute Inc.',
-    lead: 'These pages describe how the Nevolute Inc. demo presents accounts, payments, and personal information. They are not a live bank agreement.',
-    bullets: [
-      'Website terms for this demo',
-      'How profile and payment details are stored',
-      'Where to send a complaint: support@nevolute.inc',
-      'Privacy limited to what the demo account needs',
+    title: 'Terms, privacy, and complaints',
+    lead: 'These notes describe the Nevolute Inc. demo. They are not a live bank agreement.',
+    facts: [
+      { label: 'Company', value: 'Nevolute Inc.' },
+      { label: 'Year', value: '2026' },
+      { label: 'Complaints', value: 'By email' },
+      { label: 'Agreement', value: 'Demo only' },
+    ],
+    sections: [
+      {
+        kicker: 'In this menu',
+        title: 'What the legal links cover',
+        summary: 'Website terms, agreements, complaints, privacy, and the modern slavery policy share this page.',
+        items: [
+          { title: 'Website terms', body: 'The site is a design of Nevolute Inc. balances and payments. Nothing here moves real money.' },
+          { title: 'Legal agreements', body: 'Opening an account in the demo creates a profile. It does not create a regulated account agreement.' },
+          { title: 'Complaints', body: 'Send a complaint to support@nevolute.inc. The address is the same one shown on a declined payment.' },
+          { title: 'Privacy', body: 'The demo stores the profile, identity files, and ledger for that account. It does not ask for a live card number.' },
+          { title: 'UK Modern Slavery Policy', body: 'Nevolute Inc. states that this demo does not contract suppliers or labour. The policy contact is support@nevolute.inc.' },
+        ],
+      },
     ],
     ctaLabel: 'Contact support',
     ctaHref: 'mailto:support@nevolute.inc',

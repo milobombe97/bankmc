@@ -81,10 +81,6 @@ export function SignInPage() {
         <Link to="/signup" className="font-medium text-revolut-ink underline-offset-4 hover:underline">
           Create an account
         </Link>
-        <span className="mx-2 text-revolut-ink/30">·</span>
-        <Link to="/admin" className="font-medium text-revolut-ink underline-offset-4 hover:underline">
-          Admin access
-        </Link>
       </p>
     </AuthLayout>
   )

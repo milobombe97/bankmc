@@ -61,7 +61,6 @@ const legalLinks = [
   { label: 'Complaints', to: '/legal' },
   { label: 'Privacy', to: '/legal' },
   { label: 'UK Modern Slavery Policy', to: '/legal' },
-  { label: 'Admin access', to: '/admin' },
 ]
 
 export function Footer() {

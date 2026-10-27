@@ -1,5 +1,6 @@
 import { type ReactNode } from 'react'
 import { Link } from 'react-router-dom'
+import { images } from '../../data/images'
 
 export function AuthLayout({
   title,
@@ -17,18 +18,20 @@ export function AuthLayout({
   return (
     <div className="grid min-h-screen lg:grid-cols-[minmax(0,0.9fr)_minmax(420px,1fr)]">
       <aside className="relative hidden overflow-hidden bg-[#79b4e6] text-white lg:flex lg:flex-col lg:justify-between lg:p-12">
-        <Link to="/" className="text-xl font-semibold tracking-[-0.03em]">
+        <img src={images.heroPortrait} alt="" className="absolute inset-0 h-full w-full object-cover" />
+        <div className="absolute inset-0 bg-gradient-to-t from-[#163a66]/50 via-[#163a66]/10 to-[#163a66]/20" />
+        <Link to="/" className="relative text-xl font-semibold tracking-[-0.03em]">
           Nevolute
         </Link>
-        <div>
+        <div className="relative">
           <p className="max-w-sm text-4xl font-medium leading-[1.05] tracking-[-0.04em]">
             Everyday banking, with identity checks built in.
           </p>
-          <p className="mt-4 max-w-sm text-white/85">
+          <p className="mt-4 max-w-sm text-white/90">
             Create a Nevolute Inc. account, then confirm who you are.
           </p>
         </div>
-        <p className="text-sm text-white/70">Nevolute Inc.</p>
+        <p className="relative text-sm text-white/80">Nevolute Inc.</p>
       </aside>
 
       <main className="flex flex-col bg-white">

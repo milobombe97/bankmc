@@ -4,15 +4,29 @@ export function AirPage() {
   return (
     <MarketingSubPage
       eyebrow="Nevolute AI"
-      title="Ask, and AIR makes it happen"
-      lead="AIR, from Nevolute Inc., is your 24/7 personal assistant. Open your account, swipe, and ask away — from budgets to travel tips."
-      bullets={[
-        'Natural-language help inside the app',
-        'Personalised answers based on your activity',
-        'Available around the clock',
-        'Built with privacy and security in mind',
+      title="AIR, the assistant in the account"
+      lead="AIR is the Nevolute Inc. assistant for questions about spending, travel, and the plan you are on. It does not move money by itself."
+      facts={[
+        { label: 'Product', value: 'AIR' },
+        { label: 'Hours', value: '24/7' },
+        { label: 'Moves money', value: 'No' },
+        { label: 'Lives in', value: 'The account' },
       ]}
-      ctaLabel="Try it out"
+      sections={[
+        {
+          kicker: 'Nevolute AI',
+          title: 'What AIR is for',
+          summary: 'The menu has one item, AIR. These are the jobs it is meant to cover.',
+          items: [
+            { title: 'Ask in plain language', body: 'Questions about a balance, a category, or a trip can be asked without hunting through settings.' },
+            { title: 'Uses your activity', body: 'Answers can refer to the accounts and spending already on the profile. They stay on that profile.' },
+            { title: 'Always available', body: 'AIR does not use support opening hours. Account reviews and payment approvals are still done by Nevolute Inc. staff.' },
+            { title: 'Limits', body: 'AIR does not approve a payment, change a subscription, or submit an identity check.' },
+          ],
+        },
+      ]}
+      ctaLabel="Open an account"
+      ctaHref="/signup"
     />
   )
 }

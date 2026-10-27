@@ -4,16 +4,30 @@ export function SecurityPage() {
   return (
     <MarketingSubPage
       eyebrow="Nevolute Inc. Secure"
-      title="Your money's safe space"
-      lead="24/7 protection through proactive, purpose-built defences and specialists who monitor threats — so you can bank with confidence."
+      title="How the account is protected"
+      lead="Nevolute Inc. Secure is the set of controls on the account: fraud checks, a card freeze, and a way to report a lost device."
       heroTheme="dark"
-      bullets={[
-        'Proactive fraud and scam detection',
-        'Instant card freeze and location controls',
-        'How we protect your money — explained',
-        'Report lost devices and security issues quickly',
+      facts={[
+        { label: 'Monitoring', value: '24/7' },
+        { label: 'Card freeze', value: 'In the app' },
+        { label: 'Lost device', value: 'Report here' },
+        { label: 'Support', value: 'support@nevolute.inc' },
       ]}
-      ctaLabel="Learn more"
+      sections={[
+        {
+          kicker: 'Security & protection',
+          title: 'The three security links',
+          summary: 'Each item in the Security & Protection menu is a section of this page.',
+          items: [
+            { title: 'How we protect your money', body: 'Posted balances change only when a payment is approved or an internal transfer completes. Pending and declined rows stay visible and do not post.' },
+            { title: 'Learn about fraud & scams', body: 'Unexpected payment requests and identity asks should be checked in the account first. Nevolute Inc. does not ask for a password by email.' },
+            { title: 'Report a lost device', body: 'Freeze the card from the cards page, then email support@nevolute.inc from a device you still control.' },
+            { title: 'Identity checks', body: 'A new account stays limited until the identity check is approved. A rejection includes a reason and a way to send it again.' },
+          ],
+        },
+      ]}
+      ctaLabel="Open an account"
+      ctaHref="/signup"
     />
   )
 }

@@ -6,7 +6,7 @@ import { CookieBanner } from '../components/CookieBanner'
 import { Footer } from '../components/Footer'
 import { Header } from '../components/Header'
 import { BadgeCard, Marquee } from '../components/Marquee'
-import { PlansCarousel } from '../components/PlansCarousel'
+import { PlansShowcase } from '../components/PlansCarousel'
 import { FadeIn, Reveal } from '../components/Reveal'
 import { SectionLead, SectionTitle } from '../components/Typography'
 import { trustBadges } from '../data/badges'
@@ -35,13 +35,13 @@ export function HomePage() {
             Banking &amp; Beyond
           </h1>
 
-          <div className="relative grid min-h-0 flex-1 lg:grid-cols-[minmax(0,1fr)_minmax(320px,560px)_minmax(0,1fr)]">
-            <FadeIn delay={0.12} className="relative z-20 max-w-[340px] pt-8 lg:pt-16">
+          <div className="relative grid min-h-0 flex-1 xl:grid-cols-[minmax(0,1fr)_minmax(320px,560px)_minmax(0,1fr)]">
+            <FadeIn delay={0.12} className="relative z-20 mx-auto max-w-md pt-8 text-center xl:mx-0 xl:max-w-[340px] xl:pt-16 xl:text-left">
               <p className="text-[1.05rem] leading-snug text-white">
                 This is your bank, redefined. Get powerful daily banking and global freedom. Sign up
                 for free in a tap.
               </p>
-              <div className="mt-8">
+              <div className="mt-8 flex justify-center xl:justify-start">
                 <Button href="/signup">Open an account</Button>
               </div>
             </FadeIn>
@@ -59,7 +59,7 @@ export function HomePage() {
                 </p>
                 <Link
                   to="/accounts"
-                  className="mt-3 inline-flex rounded-full bg-white px-5 py-2 text-sm font-medium text-revolut-ink"
+                  className="pointer-events-auto mt-3 inline-flex rounded-full bg-white px-5 py-2 text-sm font-medium text-revolut-ink"
                 >
                   Accounts
                 </Link>
@@ -256,19 +256,21 @@ export function HomePage() {
         image={images.salary}
       />
 
-      <section className="bg-revolut-muted py-20 lg:py-28">
+      <section className="bg-white py-20 lg:py-28">
         <div className="mx-auto max-w-7xl px-5 lg:px-8">
           <Reveal>
-            <p className="type-label uppercase tracking-[0.12em] text-revolut-ink/50">Choose your plan</p>
-            <SectionTitle className="mt-3">Plans that scale with you</SectionTitle>
+            <div className="flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
+              <div>
+                <p className="type-label uppercase tracking-[0.12em] text-revolut-ink/50">Subscriptions</p>
+                <SectionTitle className="mt-3">Plans that scale with you</SectionTitle>
+              </div>
+              <Link to="/plans" className="text-sm font-medium underline-offset-4 hover:underline">
+                Compare all plans
+              </Link>
+            </div>
           </Reveal>
           <div className="mt-10">
-            <PlansCarousel plans={personalPlans} />
-          </div>
-          <div className="mt-8 text-center">
-            <Link to="/plans" className="text-sm font-medium underline-offset-4 hover:underline">
-              Compare all plans
-            </Link>
+            <PlansShowcase plans={personalPlans} />
           </div>
         </div>
       </section>

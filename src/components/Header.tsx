@@ -108,16 +108,6 @@ export function Header({ theme = 'dark' }: { theme?: 'dark' | 'light' }) {
             </nav>
 
             <div className="flex items-center gap-3">
-              <Link
-                to="/admin"
-                className={`hidden type-label sm:inline ${
-                  isDark
-                    ? 'text-white/90 hover:text-white group-data-[scrolled=true]:!text-revolut-ink/80 group-data-[scrolled=true]:hover:!text-revolut-ink'
-                    : 'text-revolut-ink/80 hover:text-revolut-ink'
-                }`}
-              >
-                Admin
-              </Link>
               {account ? (
                 <Link
                   to="/dashboard"
@@ -216,13 +206,6 @@ export function Header({ theme = 'dark' }: { theme?: 'dark' | 'light' }) {
                   onClick={() => setMobileOpen(false)}
                 >
                   Kids &amp; Teens
-                </Link>
-                <Link
-                  to="/admin"
-                  className="block text-base font-medium"
-                  onClick={() => setMobileOpen(false)}
-                >
-                  Admin access
                 </Link>
                 {account ? (
                   <Link

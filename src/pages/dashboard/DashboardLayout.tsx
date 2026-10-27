@@ -172,7 +172,6 @@ export function DashboardLayout() {
         </div>
         <footer className="px-5 pb-8 text-sm text-revolut-ink/50 lg:px-8">
           <p>© Nevolute Inc. 2026. All rights reserved.</p>
-          <Link to="/admin" className="mt-1 inline-block hover:text-revolut-ink">Admin access</Link>
         </footer>
       </div>
     </div>
