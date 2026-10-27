@@ -146,8 +146,10 @@ export function Header({ theme = 'dark' }: { theme?: 'dark' | 'light' }) {
               )}
               <button
                 type="button"
-                className={`inline-flex rounded-lg p-2 md:hidden ${
-                  isDark ? 'text-white' : 'text-revolut-ink'
+                className={`inline-flex rounded-lg p-2 transition-colors md:hidden ${
+                  isDark
+                    ? 'text-white group-data-[scrolled=true]:!text-revolut-ink'
+                    : 'text-revolut-ink'
                 }`}
                 aria-expanded={mobileOpen}
                 aria-label={mobileOpen ? 'Close menu' : 'Open menu'}
