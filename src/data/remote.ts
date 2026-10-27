@@ -73,18 +73,19 @@ function profilePatch(account: Account) {
 
 export async function signUpWithSupabase(account: Account): Promise<{ error?: string; account?: Account }> {
   if (!supabase) return { error: 'Supabase is not configured.' }
-  
-  // 1. Sign up the user in Supabase Auth
   const { data, error } = await supabase.auth.signUp({
     email: account.email,
     password: account.password,
     options: { data: { first_name: account.firstName, last_name: account.lastName } },
   })
-  
   if (error) return { error: error.message }
-  if (!data.user) {
-    return { error: 'Signup failed to return a user object.' }
+  if (!data.session || !data.user) {
+    return { error: 'Confirm the email in Supabase, or turn off email confirmation, then sign in.' }
   }
+  const next = { ...account, id: data.user.id, password: '', signedIn: true }
+  saveAccount(next)
+  return { account: next }
+}
 
   const next = { ...account, id: data.user.id, password: '', signedIn: Boolean(data.session) }
 
