@@ -16,12 +16,10 @@ export default async function handler(req: any, res: any) {
 
   try {
     const payload = req.body;
-    // ALWAYS log the raw incoming payload so we can see it in Vercel
     console.log('--- INCOMING WEBHOOK PAYLOAD ---', JSON.stringify(payload, null, 2));
 
-    const { table, type, record } = payload;
+    const { table, record } = payload;
 
-    // Helper to find recipient email
     async function getRecipientEmail(userId: string) {
       if (!userId) return null;
       const { data: profile } = await supabase
@@ -53,16 +51,13 @@ export default async function handler(req: any, res: any) {
     }
 
     // ==========================================
-    // 2. RECEIPTS (Approval & Rejection)
+    // 2. RECEIPTS
     // ==========================================
     else if (table === 'receipts') {
       const status = record?.status;
-      console.log('Processing receipt with status:', status);
-
       if (status === 'approved' || status === 'rejected') {
         recipientEmail = await getRecipientEmail(record.user_id);
         const isApproved = status === 'approved';
-
         subject = isApproved ? 'Receipt Approved!' : 'Receipt Rejected';
         const color = isApproved ? '#2e7d32' : '#c62828';
 
@@ -71,6 +66,29 @@ export default async function handler(req: any, res: any) {
             <h2>Receipt Status Update</h2>
             <p>Your receipt status is: <strong style="color: ${color}; text-transform: uppercase;">${status}</strong></p>
             ${record?.reason ? `<p><strong>Reason:</strong> ${record.reason}</p>` : ''}
+          </div>
+        `;
+      }
+    }
+
+    // ==========================================
+    // 3. KYC SUBMISSIONS
+    // ==========================================
+    else if (table === 'kyc_submissions') {
+      const status = record?.status;
+      console.log('Processing KYC submission with status:', status);
+
+      if (status === 'approved' || status === 'rejected') {
+        recipientEmail = await getRecipientEmail(record.user_id);
+        const isApproved = status === 'approved';
+        subject = isApproved ? 'KYC Verification Approved!' : 'KYC Verification Rejected';
+        const color = isApproved ? '#2e7d32' : '#c62828';
+
+        htmlContent = `
+          <div style="font-family: Arial, sans-serif; max-width: 600px; padding: 20px; border: 1px solid #eaeaea; border-radius: 8px;">
+            <h2>KYC Verification Update</h2>
+            <p>Your identity verification status is: <strong style="color: ${color}; text-transform: uppercase;">${status}</strong></p>
+            ${record?.rejection_reason ? `<p><strong>Reason:</strong> ${record.rejection_reason}</p>` : ''}
           </div>
         `;
       }
