@@ -83,7 +83,13 @@ export async function signUpWithSupabase(account: Account): Promise<{ error?: st
     return { error: 'Confirm the email in Supabase, or turn off email confirmation, then sign in.' }
   }
   const next = { ...account, id: data.user.id, password: '', signedIn: true }
-  const { error: profileError } = await supabase.from('profiles').update(profilePatch(next)).eq('id', data.user.id)
+  
+  // Use upsert so it successfully creates the profile row if it doesn't exist yet
+  const { error: profileError } = await supabase.from('profiles').upsert({
+    id: data.user.id,
+    ...profilePatch(next)
+  })
+  
   if (profileError) return { error: profileError.message }
   saveAccount(next)
   return { account: next }
