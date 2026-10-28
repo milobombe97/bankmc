@@ -200,6 +200,11 @@ export async function transferToUser(fromAccountCode: string, recipientEmail: st
   if (error) return { error: error.message }
   const { data: auth } = await supabase.auth.getUser()
   if (auth.user?.id) await pullFinancialState(auth.user.id)
+  const recipientId = (data as { recipient_id?: string } | null)?.recipient_id
+  if (recipientId) {
+    await pullAccountBalances(recipientId)
+    await import('./remote').then((m) => m.pullTransactionsForUser(recipientId))
+  }
   return { data }
 }
 

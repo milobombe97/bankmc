@@ -20,9 +20,10 @@ export function ReceiptDock() {
       clientId
         ? loadClientTransactions(clientId).filter(
             (item) =>
-              item.category !== 'Withdrawal' &&
-              item.category !== 'Transfer' &&
-              (item.status === 'pending' || item.status === 'declined' || (item.status === 'approved' && !item.receiptDismissed)),
+              item.category === 'Top up' &&
+              (item.status === 'pending' ||
+                item.status === 'declined' ||
+                (item.status === 'approved' && !item.receiptDismissed)),
           )
         : [],
     [clientId, tick],
@@ -90,8 +91,8 @@ export function ReceiptDock() {
       : notices.some((item) => item.status === 'approved')
         ? 'Payment successful'
         : notices.length === 1
-          ? 'Receipt pending'
-          : `${notices.length} receipts pending`
+          ? 'Deposit pending'
+          : `${notices.length} deposits pending`
     return (
       <button
         type="button"
@@ -107,7 +108,7 @@ export function ReceiptDock() {
     <aside className="fixed right-4 bottom-4 z-50 flex max-h-[min(34rem,calc(100vh-2rem))] w-[min(22rem,calc(100vw-2rem))] flex-col overflow-hidden rounded-2xl border border-revolut-line bg-white shadow-[0_16px_40px_rgba(25,28,31,0.18)]">
       <div className="flex items-center justify-between gap-3 border-b border-revolut-line px-4 py-3">
         <p className="text-sm font-medium">
-          {notices.length === 1 ? 'Receipt' : `${notices.length} receipts`}
+          {notices.length === 1 ? 'Deposit receipt' : `${notices.length} deposit receipts`}
         </p>
         <button type="button" className="text-sm text-revolut-ink/55 hover:text-revolut-ink" onClick={minimize}>
           Minimize

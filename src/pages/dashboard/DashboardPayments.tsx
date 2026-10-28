@@ -69,7 +69,7 @@ export function DashboardPayments() {
         setError('Connect Supabase to send money to another Nevolute customer by email.')
         return
       }
-      setSubmitted(`Transfer of ${formatMoney(value, source.currency)} to ${target} is pending verification.`)
+      setSubmitted(`Sent ${formatMoney(value, source.currency)} to ${target}.`)
     } else {
       recordPending({
         accountId: source.id,
@@ -88,7 +88,7 @@ export function DashboardPayments() {
       <div>
         <h1 className="text-3xl font-medium tracking-[-0.04em]">Send money</h1>
         <p className="mt-2 text-sm text-revolut-ink/60">
-          Send to another Nevolute customer by email (pending until Nevolute Inc. approves), or enter a name for an external payment that stays pending until support approves it.
+          Send to another Nevolute customer by email (funds move immediately), or enter a name for an external payment that stays pending until support approves it.
         </p>
         <form className="mt-8 space-y-4" onSubmit={onSubmit}>
           <Field label="From">

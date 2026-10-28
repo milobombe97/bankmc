@@ -80,9 +80,11 @@ export function DashboardTransactionDetail() {
     : approved
       ? 'Successful'
       : pending
-        ? withdrawal || transfer
+        ? withdrawal
           ? 'Pending verification'
-          : item.receiptSent
+          : transfer
+            ? 'Pending verification'
+            : item.receiptSent
             ? 'Pending review'
             : fileSaved
               ? 'Receipt ready to send'
@@ -130,11 +132,14 @@ export function DashboardTransactionDetail() {
           />
         </label>
       )}
-      {pending && (withdrawal || transfer) && (
+      {pending && withdrawal && (
         <p className="mt-4 max-w-xl text-sm font-medium text-amber-800" role="status">
-          {transfer
-            ? 'Transfer pending verification. Your balance is reserved until Nevolute Inc. approves this payment.'
-            : 'Withdrawal pending verification. You will receive a withdrawal notification once your transaction has been processed.'}
+          Withdrawal pending verification. You will receive a withdrawal notification once your transaction has been processed.
+        </p>
+      )}
+      {approved && transfer && (
+        <p className="mt-4 max-w-xl text-sm text-emerald-700" role="status">
+          This transfer is complete. The exact amount was debited from your account and credited to the recipient.
         </p>
       )}
       {receiptRequired && (
@@ -150,7 +155,7 @@ export function DashboardTransactionDetail() {
           <a href={`mailto:${supportEmail}`} className="font-medium underline-offset-4 hover:underline">{supportEmail}</a>.
         </p>
       )}
-      {approved && <p className="mt-4 max-w-xl text-sm text-emerald-700">This payment was successful. The funds are in the account.</p>}
+      {approved && !transfer && <p className="mt-4 max-w-xl text-sm text-emerald-700">This payment was successful. The funds are in the account.</p>}
     </main>
   )
 }

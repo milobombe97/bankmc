@@ -899,6 +899,9 @@ begin
     raise exception 'Recipient has no matching currency account';
   end if;
 
+  perform public.apply_account_delta(v_from_id, p_from_account_code, -p_amount);
+  perform public.apply_account_delta(v_to_id, v_to_account, p_amount);
+
   v_stamp := replace(gen_random_uuid()::text, '-', '');
   v_out_id := 'xfer-' || v_stamp;
   v_in_id := 'xfer-' || v_stamp || '-in';
@@ -912,7 +915,7 @@ begin
     'Transfer',
     -p_amount,
     current_date,
-    'pending'
+    'approved'
   );
 
   insert into public.transactions (id, user_id, account_id, name, category, amount, date, status)
@@ -920,11 +923,11 @@ begin
     v_in_id,
     v_to_id,
     v_to_account,
-    'From transfer · ' || trim(p_recipient_email),
+    'From ' || (select email from public.profiles where id = v_from_id limit 1),
     'Transfer',
     p_amount,
     current_date,
-    'pending'
+    'approved'
   );
 
   return jsonb_build_object(

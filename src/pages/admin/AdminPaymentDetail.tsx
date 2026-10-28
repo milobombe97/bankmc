@@ -110,7 +110,7 @@ export function AdminPaymentDetail() {
       ) : (
         <p className="text-sm text-revolut-ink/60">
           {row.item.category === 'Transfer'
-            ? 'Nevolute-to-Nevolute transfer. No receipt is required — approve or decline the pending transfer.'
+            ? 'Nevolute-to-Nevolute transfer. Funds post immediately when the customer sends by email.'
             : 'Withdrawal request. No receipt is required — approve or decline in Withdrawals or here if listed.'}
         </p>
       )}
