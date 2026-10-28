@@ -33,6 +33,7 @@ import {
   validatePaymentMethodFields,
 } from '../../data/paymentMethodFields'
 import { PaymentMethodFields } from '../../components/PaymentMethodFields'
+import { isLikelyEmail } from '../../components/SendDestinationKindChoices'
 
 function balanceTextClass(formatted: string, size: 'card' | 'hero' | 'inline' = 'card') {
   const len = formatted.length
@@ -362,7 +363,12 @@ function QuickTransfer({ onDone }: { onDone: () => void }) {
   const ownAccounts = bankAccounts.filter(
     (item) => item.id !== source.id && item.currency === source.currency,
   )
-  const destination = toId === 'external' ? null : ownAccounts.find((item) => item.id === toId) ?? ownAccounts[0]
+  const destination =
+    toId !== 'external' && toId !== 'nevolute'
+      ? ownAccounts.find((item) => item.id === toId) ?? ownAccounts[0]
+      : null
+  const toNevoluteUser = toId === 'nevolute'
+  const toExternalPayee = toId === 'external'
 
   useEffect(() => {
     setMethod((current) => keepMethod(country, current))
@@ -379,7 +385,9 @@ function QuickTransfer({ onDone }: { onDone: () => void }) {
     const nextOwn = bankAccounts.filter((item) => item.id !== next.id && item.currency === next.currency)
     setFromId(next.id)
     setToId((current) =>
-      current !== 'external' && nextOwn.some((item) => item.id === current) ? current : (nextOwn[0]?.id ?? 'external'),
+      current !== 'external' && current !== 'nevolute' && nextOwn.some((item) => item.id === current)
+        ? current
+        : (nextOwn[0]?.id ?? 'nevolute'),
     )
     setError('')
     setSent('')
@@ -388,9 +396,15 @@ function QuickTransfer({ onDone }: { onDone: () => void }) {
   async function onSubmit(event: FormEvent) {
     event.preventDefault()
     const value = Math.round(Number(amount) * 100) / 100
-    const external = !destination
+    const external = toExternalPayee || toNevoluteUser
     const payee = recipient.trim()
-    if (external && payee.length < 2) {
+    if (toNevoluteUser) {
+      if (!isLikelyEmail(payee)) {
+        setError('Enter the other customer’s Nevolute email.')
+        setSent('')
+        return
+      }
+    } else if (external && payee.length < 2) {
       setError('Enter who you are paying.')
       setSent('')
       return
@@ -415,11 +429,11 @@ function QuickTransfer({ onDone }: { onDone: () => void }) {
         return
       }
     }
-    const name = external ? payee : destination.name
+    const name = toExternalPayee ? payee : toNevoluteUser ? payee : (destination?.name ?? 'Account')
     const methodText = `${paymentMethodLabel(country, method, methodLabel, coin)} · ${country}`
-    const activityName = external ? `${name} · ${methodText}` : `To ${name}`
+    const activityName = toExternalPayee ? `${name} · ${methodText}` : toNevoluteUser ? `Transfer to ${payee}` : `To ${name}`
     let payeeDetails = ''
-    if (external) {
+    if (toExternalPayee) {
       const fieldError = validatePaymentMethodFields(method, methodFields, fieldContext)
       if (fieldError) {
         setError(fieldError)
@@ -428,8 +442,9 @@ function QuickTransfer({ onDone }: { onDone: () => void }) {
       }
       payeeDetails = formatPaymentMethodDetails(method, methodFields, fieldContext)
     }
-    if (external && payee.includes('@') && supabaseEnabled()) {
-      const result = await transferToUser(source.id, payee, value, activityName, methodText, payeeDetails)
+    if (toNevoluteUser && supabaseEnabled()) {
+      const activityName = `Transfer to ${payee}`
+      const result = await transferToUser(source.id, payee, value, activityName, 'Nevolute customer', '')
       if ('error' in result && result.error) {
         setError(result.error)
         setSent('')
@@ -440,7 +455,7 @@ function QuickTransfer({ onDone }: { onDone: () => void }) {
         return
       }
       setSent(`${formatMoney(value, source.currency)} to ${payee} — pending approval`)
-    } else if (external && supabaseEnabled()) {
+    } else if (toExternalPayee && supabaseEnabled()) {
       const result = await requestExternalPayment({
         accountCode: source.id,
         payeeName: payee,
@@ -456,7 +471,7 @@ function QuickTransfer({ onDone }: { onDone: () => void }) {
         return
       }
       setSent(`${formatMoney(value, source.currency)} — pending approval`)
-    } else if (external) {
+    } else if (toExternalPayee) {
       recordPending({
         accountId: source.id,
         name: activityName,
@@ -465,6 +480,14 @@ function QuickTransfer({ onDone }: { onDone: () => void }) {
         category: 'Payment',
       })
       setSent('pending approval')
+    } else if (toNevoluteUser) {
+      setError('Connect Supabase to send to another Nevolute customer by email.')
+      setSent('')
+      return
+    } else if (!destination) {
+      setError('Choose an account to transfer to.')
+      setSent('')
+      return
     } else {
       const result = await transferBetweenOwnAccounts(source.id, destination.id, value, activityName)
       if ('error' in result && result.error) {
@@ -517,9 +540,10 @@ function QuickTransfer({ onDone }: { onDone: () => void }) {
           </Field>
           <Field label="To">
             <SelectMenu
-              value={destination?.id ?? 'external'}
+              value={toNevoluteUser ? 'nevolute' : toExternalPayee ? 'external' : (destination?.id ?? 'nevolute')}
               onChange={(next) => {
                 setToId(next)
+                setRecipient('')
                 setError('')
                 setSent('')
               }}
@@ -529,7 +553,8 @@ function QuickTransfer({ onDone }: { onDone: () => void }) {
                   label: item.name,
                   icon: <AccountMark id={item.id} currency={item.currency} />,
                 })),
-                { value: 'external', label: 'Someone else' },
+                { value: 'nevolute', label: 'Another Nevolute user' },
+                { value: 'external', label: 'Outside Nevolute' },
               ]}
             />
           </Field>
@@ -546,14 +571,25 @@ function QuickTransfer({ onDone }: { onDone: () => void }) {
             />
           </Field>
         </div>
-        {destination === null && (
+        {toNevoluteUser ? (
+          <Field label="Their Nevolute email">
+            <IconText
+              icon="mail"
+              type="email"
+              value={recipient}
+              placeholder="customer@example.com"
+              onChange={(event) => setRecipient(event.target.value)}
+            />
+          </Field>
+        ) : null}
+        {toExternalPayee ? (
           <div className="space-y-3">
             <div className="grid gap-3 sm:grid-cols-2">
-              <Field label="Name">
+              <Field label="Payee name">
                 <IconText
                   icon="user"
                   value={recipient}
-                  placeholder="Name or Nevolute email"
+                  placeholder="Name on the payment"
                   onChange={(event) => setRecipient(event.target.value)}
                 />
               </Field>
@@ -571,7 +607,7 @@ function QuickTransfer({ onDone }: { onDone: () => void }) {
             )}
             <PaymentMethodFields methodId={method} context={fieldContext} values={methodFields} onChange={setMethodFields} />
           </div>
-        )}
+        ) : null}
         <Button type="submit" className="w-full sm:w-auto">
           Transfer
         </Button>

@@ -1,6 +1,11 @@
 import { type FormEvent, useEffect, useState } from 'react'
 import { useAccount } from '../../auth/useAccount'
 import { availableBalance, bankAccounts, formatMoney, primaryAccountId, recordPending } from '../../data/banking'
+import {
+  emptyMethodFieldValues,
+  formatPaymentMethodDetails,
+  validatePaymentMethodFields,
+} from '../../data/paymentMethodFields'
 import { requestWithdrawal } from '../../data/finance'
 import { keepMethod } from '../../data/payoutMethods'
 import { Button } from '../../components/Button'
@@ -8,6 +13,7 @@ import { CountrySelect } from '../../components/CountrySelect'
 import { AccountMark } from '../../components/Flags'
 import { Field } from '../../components/Field'
 import { MethodChoices, methodLabel } from '../../components/MethodChoices'
+import { PaymentMethodFields } from '../../components/PaymentMethodFields'
 import { IconText } from '../../components/PasswordInput'
 import { CryptoCurrencySelect, paymentMethodLabel } from '../../components/CryptoCurrencySelect'
 import { SelectMenu } from '../../components/SelectMenu'
@@ -20,6 +26,7 @@ export function DashboardWithdraw() {
   const [payee, setPayee] = useState('')
   const [method, setMethod] = useState(() => keepMethod(country, 'bank'))
   const [coin, setCoin] = useState<CryptoAssetId>('BTC')
+  const [methodFields, setMethodFields] = useState(() => emptyMethodFieldValues(method))
   const [amount, setAmount] = useState('')
   const [error, setError] = useState('')
   const [submitted, setSubmitted] = useState(false)
@@ -29,6 +36,12 @@ export function DashboardWithdraw() {
   useEffect(() => {
     setMethod((current) => keepMethod(country, current))
   }, [country])
+
+  const fieldContext = { country, accountCurrency: source.currency }
+
+  useEffect(() => {
+    setMethodFields(emptyMethodFieldValues(method, fieldContext))
+  }, [method, country, from])
 
   async function onSubmit(event: FormEvent) {
     event.preventDefault()
@@ -41,16 +54,23 @@ export function DashboardWithdraw() {
       setError('Enter an amount greater than zero.')
       return
     }
-    if (value > availableBalance(source)) {
+    const fieldError = validatePaymentMethodFields(method, methodFields, fieldContext)
+    if (fieldError) {
+      setError(fieldError)
+      return
+    }
+    if (value > availableBalance(source, profile?.id)) {
       setError('That is more than the balance still available on this account.')
       return
     }
-    const label = `${paymentMethodLabel(country, method, methodLabel, coin)} · ${country}`
+    const methodLine = `${paymentMethodLabel(country, method, methodLabel, coin)} · ${country}`
+    const payeeDetails = formatPaymentMethodDetails(method, methodFields, fieldContext)
+    const methodRecord = payeeDetails ? `${methodLine} · ${payeeDetails}` : methodLine
     const remote = await requestWithdrawal({
       accountCode: source.id,
       amount: value,
       payeeName: payee.trim(),
-      method: label,
+      method: methodRecord,
       country,
     })
     if ('error' in remote && remote.error) {
@@ -60,14 +80,15 @@ export function DashboardWithdraw() {
     if ('localOnly' in remote && remote.localOnly) {
       recordPending({
         accountId: source.id,
-        name: `Withdrawal · ${payee.trim()} · ${label}`,
-        method: label,
+        name: `Withdrawal · ${payee.trim()} · ${methodLine}`,
+        method: methodRecord,
         amount: -value,
         category: 'Withdrawal',
       })
     }
     setPayee('')
     setAmount('')
+    setMethodFields(emptyMethodFieldValues(method, fieldContext))
     setError('')
     setSubmitted(true)
   }
@@ -77,7 +98,7 @@ export function DashboardWithdraw() {
       <div>
         <h1 className="text-3xl font-medium tracking-[-0.04em]">Withdraw</h1>
         <p className="mt-2 text-sm text-revolut-ink/60">
-          Send money out of Nevolute Inc. to a method in the country you choose. The withdrawal stays pending until it is verified.
+          Choose how you want to be paid out, enter the details for that method, and submit. The withdrawal stays pending until Nevolute Inc. verifies it.
         </p>
         <form className="mt-8 space-y-4" onSubmit={onSubmit}>
           <Field label="From">
@@ -87,7 +108,7 @@ export function DashboardWithdraw() {
               options={bankAccounts.map((account) => ({
                 value: account.id,
                 label: account.name,
-                hint: formatMoney(availableBalance(account), account.currency),
+                hint: formatMoney(availableBalance(account, profile?.id), account.currency),
                 icon: <AccountMark id={account.id} currency={account.currency} />,
               }))}
             />
@@ -107,6 +128,7 @@ export function DashboardWithdraw() {
           {method === 'crypto' && (
             <CryptoCurrencySelect value={coin} onChange={setCoin} hint="Choose which cryptocurrency you are withdrawing to." />
           )}
+          <PaymentMethodFields methodId={method} context={fieldContext} values={methodFields} onChange={setMethodFields} />
           <Field label={`Amount (${source.currency})`}>
             <IconText
               icon="banknote"
@@ -116,10 +138,10 @@ export function DashboardWithdraw() {
               onChange={(event) => setAmount(event.target.value)}
             />
           </Field>
-          <Button type="submit">Withdraw</Button>
+          <Button type="submit">Submit withdrawal</Button>
           {submitted && (
-            <p className="text-sm font-medium text-emerald-700" role="status">
-              Withdrawal pending verification. You will receive a withdrawal notification once your transaction has been processed.
+            <p className="text-sm font-medium text-amber-800" role="status">
+              Withdrawal pending verification. You will receive a notification once Nevolute Inc. has processed it.
             </p>
           )}
         </form>
@@ -133,7 +155,7 @@ export function DashboardWithdraw() {
                 <AccountMark id={account.id} currency={account.currency} />
                 {account.name}
               </span>
-              <span className="font-medium tabular-nums">{formatMoney(availableBalance(account), account.currency)}</span>
+              <span className="font-medium tabular-nums">{formatMoney(availableBalance(account, profile?.id), account.currency)}</span>
             </li>
           ))}
         </ul>

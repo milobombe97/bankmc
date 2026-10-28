@@ -15,6 +15,7 @@ import { AccountMark } from '../../components/Flags'
 import { Field } from '../../components/Field'
 import { MethodChoices, methodLabel } from '../../components/MethodChoices'
 import { PaymentMethodFields } from '../../components/PaymentMethodFields'
+import { SendDestinationKindChoices, isLikelyEmail, type SendDestinationKind } from '../../components/SendDestinationKindChoices'
 import { IconText } from '../../components/PasswordInput'
 import { CryptoCurrencySelect, paymentMethodLabel } from '../../components/CryptoCurrencySelect'
 import { SelectMenu } from '../../components/SelectMenu'
@@ -27,6 +28,7 @@ export function DashboardPayments() {
   const profile = useAccount()
   const [country, setCountry] = useState(profile?.kyc?.country || 'United Kingdom')
   const [from, setFrom] = useState(primaryAccountId)
+  const [sendKind, setSendKind] = useState<SendDestinationKind>('nevolute')
   const [recipient, setRecipient] = useState('')
   const [method, setMethod] = useState(() => keepMethod(country, 'fps'))
   const [coin, setCoin] = useState<CryptoAssetId>('BTC')
@@ -51,7 +53,12 @@ export function DashboardPayments() {
     event.preventDefault()
     const value = Math.round(Number(amount) * 100) / 100
     const target = recipient.trim()
-    if (target.length < 2) {
+    if (sendKind === 'nevolute') {
+      if (!isLikelyEmail(target)) {
+        setError('Enter the other customer’s Nevolute email address.')
+        return
+      }
+    } else if (target.length < 2) {
       setError('Enter who you are paying.')
       return
     }
@@ -59,10 +66,12 @@ export function DashboardPayments() {
       setError('Enter an amount greater than zero.')
       return
     }
-    const fieldError = validatePaymentMethodFields(method, methodFields, fieldContext)
-    if (fieldError) {
-      setError(fieldError)
-      return
+    if (sendKind === 'external') {
+      const fieldError = validatePaymentMethodFields(method, methodFields, fieldContext)
+      if (fieldError) {
+        setError(fieldError)
+        return
+      }
     }
     if (profile?.id && supabaseEnabled()) {
       const limit = await assertTransferAmount(profile.id, source.id, value)
@@ -77,10 +86,18 @@ export function DashboardPayments() {
     const label = paymentMethodLabel(country, method, methodLabel, coin)
     const methodLine = `${label} · ${country}`
     const payeeDetails = formatPaymentMethodDetails(method, methodFields, fieldContext)
-    const activityName = `${target} · ${methodLine}`
+    const activityName =
+      sendKind === 'nevolute' ? `Transfer to ${target}` : `${target} · ${methodLine}`
 
-    if (target.includes('@') && supabaseEnabled()) {
-      const result = await transferToUser(source.id, target, value, activityName, methodLine, payeeDetails)
+    if (sendKind === 'nevolute' && supabaseEnabled()) {
+      const result = await transferToUser(
+        source.id,
+        target,
+        value,
+        activityName,
+        'Nevolute customer',
+        '',
+      )
       if ('error' in result && result.error) {
         setError(result.error)
         return
@@ -91,6 +108,9 @@ export function DashboardPayments() {
         return
       }
       setSubmitted(`Submitted ${formatMoney(value, source.currency)} to ${target}. ${pendingNotice}`)
+    } else if (sendKind === 'nevolute') {
+      setError('Connect Supabase to send to another Nevolute customer.')
+      return
     } else if (supabaseEnabled()) {
       const result = await requestExternalPayment({
         accountCode: source.id,
@@ -137,7 +157,7 @@ export function DashboardPayments() {
       <div>
         <h1 className="text-3xl font-medium tracking-[-0.04em]">Send money</h1>
         <p className="mt-2 text-sm text-revolut-ink/60">
-          Choose how you are paying, enter the details for that method, and submit. Every send stays pending until Nevolute Inc. approves it.
+          Send to another Nevolute customer by email, or pay someone outside Nevolute with your chosen payment method. Every send stays pending until Nevolute Inc. approves it.
         </p>
         <form className="mt-8 space-y-4" onSubmit={onSubmit}>
           <Field label="From">
@@ -152,22 +172,38 @@ export function DashboardPayments() {
               }))}
             />
           </Field>
-          <Field label="Recipient" error={error || undefined}>
+          <SendDestinationKindChoices
+            value={sendKind}
+            onChange={(next) => {
+              setSendKind(next)
+              setError('')
+              setSubmitted('')
+            }}
+          />
+          <Field
+            label={sendKind === 'nevolute' ? 'Their Nevolute email' : 'Recipient'}
+            error={error || undefined}
+          >
             <IconText
-              icon="user"
+              icon="mail"
+              type={sendKind === 'nevolute' ? 'email' : 'text'}
               value={recipient}
-              placeholder="Email for Nevolute customer, or payee name"
+              placeholder={sendKind === 'nevolute' ? 'customer@example.com' : 'Payee name'}
               onChange={(event) => setRecipient(event.target.value)}
             />
           </Field>
-          <Field label="Country">
-            <CountrySelect value={country} onChange={setCountry} />
-          </Field>
-          <MethodChoices country={country} value={method} onChange={setMethod} basis="destination" />
-          {method === 'crypto' && (
-            <CryptoCurrencySelect value={coin} onChange={setCoin} hint="Choose which cryptocurrency you are paying with." />
-          )}
-          <PaymentMethodFields methodId={method} context={fieldContext} values={methodFields} onChange={setMethodFields} />
+          {sendKind === 'external' ? (
+            <>
+              <Field label="Country">
+                <CountrySelect value={country} onChange={setCountry} />
+              </Field>
+              <MethodChoices country={country} value={method} onChange={setMethod} basis="destination" />
+              {method === 'crypto' && (
+                <CryptoCurrencySelect value={coin} onChange={setCoin} hint="Choose which cryptocurrency you are paying with." />
+              )}
+              <PaymentMethodFields methodId={method} context={fieldContext} values={methodFields} onChange={setMethodFields} />
+            </>
+          ) : null}
           <Field label={`Amount (${source.currency})`}>
             <IconText
               icon="banknote"
