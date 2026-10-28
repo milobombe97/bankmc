@@ -2,6 +2,7 @@ import { loadAccount, loadClients } from '../auth/session'
 import { ensureCanTransact } from './adminAccounts'
 import { loadPostedBalances, savePostedBalances } from './balances'
 import { ledgerKey, type Transaction } from './banking'
+import { sortTransactions } from './transactionsView'
 import { fetchStaffRole } from './remote'
 import { supabase } from '../lib/supabase'
 
@@ -54,6 +55,42 @@ export async function pullFinancialState(userId?: string) {
   if (!id) return
   await pullAccountBalances(id)
   await remote.pullTransactionsForUser(id)
+}
+
+/** Keep balances and activity in sync while the dashboard is open (incoming transfers, admin approvals). */
+export function subscribeFinancialSync(userId: string | undefined) {
+  const client = supabase
+  if (!userId || !client) return () => {}
+
+  void pullFinancialState(userId)
+
+  const channel = client
+    .channel(`financial-${userId}`)
+    .on(
+      'postgres_changes',
+      { event: '*', schema: 'public', table: 'transactions', filter: `user_id=eq.${userId}` },
+      () => {
+        void pullFinancialState(userId)
+      },
+    )
+    .subscribe()
+
+  const refresh = () => {
+    void pullFinancialState(userId)
+  }
+  window.addEventListener('focus', refresh)
+  const onVisible = () => {
+    if (document.visibilityState === 'visible') refresh()
+  }
+  document.addEventListener('visibilitychange', onVisible)
+  const interval = window.setInterval(refresh, 45_000)
+
+  return () => {
+    void client.removeChannel(channel)
+    window.removeEventListener('focus', refresh)
+    document.removeEventListener('visibilitychange', onVisible)
+    window.clearInterval(interval)
+  }
 }
 
 function blockIfInactive() {
@@ -187,7 +224,14 @@ export async function reviewPayment(
   return { ok: true as const }
 }
 
-export async function transferToUser(fromAccountCode: string, recipientEmail: string, amount: number, memo: string) {
+export async function transferToUser(
+  fromAccountCode: string,
+  recipientEmail: string,
+  amount: number,
+  memo: string,
+  method?: string,
+  payeeDetails?: string,
+) {
   const inactive = blockIfInactive()
   if (inactive) return inactive
   if (!supabase) return { localOnly: true as const }
@@ -196,6 +240,8 @@ export async function transferToUser(fromAccountCode: string, recipientEmail: st
     p_recipient_email: recipientEmail.trim(),
     p_amount: amount,
     p_memo: memo,
+    p_method: method?.trim() || null,
+    p_payee_details: payeeDetails?.trim() || null,
   })
   if (error) return { error: error.message }
   const { data: auth } = await supabase.auth.getUser()
@@ -206,6 +252,33 @@ export async function transferToUser(fromAccountCode: string, recipientEmail: st
     await import('./remote').then((m) => m.pullTransactionsForUser(recipientId))
   }
   return { data }
+}
+
+export async function requestExternalPayment(input: {
+  accountCode: string
+  payeeName: string
+  amount: number
+  method: string
+  payeeDetails: string
+  country: string
+  memo?: string
+}) {
+  const inactive = blockIfInactive()
+  if (inactive) return inactive
+  if (!supabase) return { localOnly: true as const }
+  const { data, error } = await supabase.rpc('request_external_payment', {
+    p_from_account_code: input.accountCode,
+    p_payee_name: input.payeeName.trim(),
+    p_amount: input.amount,
+    p_method: input.method,
+    p_payee_details: input.payeeDetails,
+    p_country: input.country,
+    p_memo: input.memo?.trim() || '',
+  })
+  if (error) return { error: error.message }
+  const { data: auth } = await supabase.auth.getUser()
+  if (auth.user?.id) await pullFinancialState(auth.user.id)
+  return { paymentId: data as string }
 }
 
 export async function transferBetweenOwnAccounts(fromCode: string, toCode: string, amount: number, memo: string) {
@@ -275,7 +348,7 @@ export async function reviewWithdrawal(requestId: string, decision: 'approved' |
 }
 
 export function mergeRemoteTransactions(userId: string, rows: Transaction[]) {
-  localStorage.setItem(ledgerKey(userId), JSON.stringify(rows))
+  localStorage.setItem(ledgerKey(userId), JSON.stringify(sortTransactions(rows)))
   window.dispatchEvent(new Event('ledger-changed'))
 }
 

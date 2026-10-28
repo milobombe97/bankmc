@@ -2,6 +2,7 @@ import { type FormEvent, useEffect, useMemo, useState } from 'react'
 import { Link } from 'react-router-dom'
 import { useAccount } from '../../auth/useAccount'
 import { Button } from '../../components/Button'
+import { TransactionRow } from '../../components/TransactionRow'
 import { AccountMark } from '../../components/Flags'
 import { CountrySelect } from '../../components/CountrySelect'
 import { Field } from '../../components/Field'
@@ -20,12 +21,18 @@ import {
   recordPending,
   recordTransfer,
   type Currency,
-  type Transaction,
 } from '../../data/banking'
+import { filterTransactions } from '../../data/transactionsView'
 import { CryptoCurrencySelect, paymentMethodLabel } from '../../components/CryptoCurrencySelect'
 import { type CryptoAssetId } from '../../data/cryptoAssets'
-import { transferBetweenOwnAccounts, assertTransferAmount, pullFinancialState, transferToUser } from '../../data/finance'
+import { transferBetweenOwnAccounts, assertTransferAmount, requestExternalPayment, transferToUser } from '../../data/finance'
 import { supabaseEnabled } from '../../lib/supabase'
+import {
+  emptyMethodFieldValues,
+  formatPaymentMethodDetails,
+  validatePaymentMethodFields,
+} from '../../data/paymentMethodFields'
+import { PaymentMethodFields } from '../../components/PaymentMethodFields'
 
 function balanceTextClass(formatted: string, size: 'card' | 'hero' | 'inline' = 'card') {
   const len = formatted.length
@@ -78,15 +85,11 @@ export function DashboardHome() {
     return () => window.removeEventListener('ledger-changed', sync)
   }, [])
 
-  useEffect(() => {
-    if (!account?.id || !supabaseEnabled()) return
-    void pullFinancialState(account.id)
-  }, [account?.id])
-
   const usdAccount = bankAccounts.find((item) => item.id === 'usd') ?? bankAccounts[0]
   const usdTotal = accountBalance(usdAccount, account?.id)
-  const visible = transactions.filter((item) =>
-    item.name.toLowerCase().includes(query.trim().toLowerCase()),
+  const recent = useMemo(
+    () => filterTransactions(loadTransactions(), { query, filter: 'all' }).slice(0, 10),
+    [query, ledgerTick],
   )
 
   return (
@@ -157,7 +160,11 @@ export function DashboardHome() {
       <section>
         <div className="flex flex-wrap items-end justify-between gap-3">
           <h2 className="text-xl font-medium tracking-[-0.03em]">Recent activity</h2>
-          <label className="relative block w-full max-w-xs sm:w-64">
+          <div className="flex flex-wrap items-center gap-3">
+            <Link to="/dashboard/transactions" className="text-sm font-medium text-revolut-ink/70 hover:text-revolut-ink">
+              See all
+            </Link>
+            <label className="relative block w-full max-w-xs sm:w-64">
             <span className="sr-only">Search transactions</span>
             <FieldIcon name="search" />
             <input
@@ -167,12 +174,13 @@ export function DashboardHome() {
               className="w-full rounded-full border border-revolut-line bg-white py-2 pr-4 pl-11 text-sm outline-none focus:border-revolut-ink"
             />
           </label>
+          </div>
         </div>
         <ul className="mt-4 overflow-hidden rounded-[1.5rem] bg-white">
-          {visible.length === 0 && (
+          {recent.length === 0 && (
             <li className="px-5 py-8 text-sm text-revolut-ink/55">No transactions match that search.</li>
           )}
-          {visible.map((item) => (
+          {recent.map((item) => (
             <TransactionRow key={item.id} item={item} />
           ))}
         </ul>
@@ -345,6 +353,7 @@ function QuickTransfer({ onDone }: { onDone: () => void }) {
   const [recipient, setRecipient] = useState('')
   const [method, setMethod] = useState(() => keepMethod(country, 'fps'))
   const [coin, setCoin] = useState<CryptoAssetId>('BTC')
+  const [methodFields, setMethodFields] = useState(() => emptyMethodFieldValues(method))
   const [amount, setAmount] = useState('')
   const [error, setError] = useState('')
   const [sent, setSent] = useState('')
@@ -356,13 +365,12 @@ function QuickTransfer({ onDone }: { onDone: () => void }) {
   const destination = toId === 'external' ? null : ownAccounts.find((item) => item.id === toId) ?? ownAccounts[0]
 
   useEffect(() => {
-    if (!profile?.id || !supabaseEnabled()) return
-    void pullFinancialState(profile.id)
-  }, [profile?.id])
-
-  useEffect(() => {
     setMethod((current) => keepMethod(country, current))
   }, [country])
+
+  useEffect(() => {
+    setMethodFields(emptyMethodFieldValues(method))
+  }, [method])
 
   function chooseFrom(nextId: string) {
     const next = bankAccounts.find((item) => item.id === nextId) ?? bankAccounts[0]
@@ -408,8 +416,18 @@ function QuickTransfer({ onDone }: { onDone: () => void }) {
     const name = external ? payee : destination.name
     const methodText = `${paymentMethodLabel(country, method, methodLabel, coin)} · ${country}`
     const activityName = external ? `${name} · ${methodText}` : `To ${name}`
-    if (external && payee.includes('@')) {
-      const result = await transferToUser(source.id, payee, value, activityName)
+    let payeeDetails = ''
+    if (external) {
+      const fieldError = validatePaymentMethodFields(method, methodFields)
+      if (fieldError) {
+        setError(fieldError)
+        setSent('')
+        return
+      }
+      payeeDetails = formatPaymentMethodDetails(method, methodFields)
+    }
+    if (external && payee.includes('@') && supabaseEnabled()) {
+      const result = await transferToUser(source.id, payee, value, activityName, methodText, payeeDetails)
       if ('error' in result && result.error) {
         setError(result.error)
         setSent('')
@@ -419,15 +437,32 @@ function QuickTransfer({ onDone }: { onDone: () => void }) {
         setError('Connect Supabase to send to another Nevolute customer by email.')
         return
       }
-      setSent(`Sent ${formatMoney(value, source.currency)} to ${payee}.`)
+      setSent(`${formatMoney(value, source.currency)} to ${payee} — pending approval`)
+    } else if (external && supabaseEnabled()) {
+      const result = await requestExternalPayment({
+        accountCode: source.id,
+        payeeName: payee,
+        amount: value,
+        method: methodText,
+        payeeDetails,
+        country,
+        memo: activityName,
+      })
+      if ('error' in result && result.error) {
+        setError(result.error)
+        setSent('')
+        return
+      }
+      setSent(`${formatMoney(value, source.currency)} — pending approval`)
     } else if (external) {
       recordPending({
         accountId: source.id,
         name: activityName,
-        method: methodText,
+        method: payeeDetails ? `${methodText} · ${payeeDetails}` : methodText,
         amount: -value,
+        category: 'Payment',
       })
-      setSent('')
+      setSent('pending approval')
     } else {
       const result = await transferBetweenOwnAccounts(source.id, destination.id, value, activityName)
       if ('error' in result && result.error) {
@@ -532,6 +567,7 @@ function QuickTransfer({ onDone }: { onDone: () => void }) {
                 hint="Choose which asset you are sending for this transfer."
               />
             )}
+            <PaymentMethodFields methodId={method} values={methodFields} onChange={setMethodFields} />
           </div>
         )}
         <Button type="submit" className="w-full sm:w-auto">
@@ -540,74 +576,10 @@ function QuickTransfer({ onDone }: { onDone: () => void }) {
       </form>
       {error && <p className="mt-3 text-sm text-red-600">{error}</p>}
       {sent && (
-        <p className="mt-3 text-sm font-medium text-emerald-700" role="status">
-          Sent {sent}.
+        <p className="mt-3 text-sm font-medium text-amber-800" role="status">
+          {sent.includes('pending') ? sent : `Sent ${sent}.`}
         </p>
       )}
     </section>
-  )
-}
-
-function TransactionRow({ item }: { item: Transaction }) {
-  const account = bankAccounts.find((entry) => entry.id === item.accountId)
-  const currency = account?.currency ?? 'USD'
-  const positive = item.amount > 0
-  return (
-    <li className="border-b border-revolut-line last:border-b-0">
-      <Link
-        to={`/dashboard/activity/${encodeURIComponent(item.id)}`}
-        className="flex items-center justify-between gap-4 px-5 py-4 hover:bg-revolut-muted/70"
-      >
-        <div className="flex min-w-0 items-center gap-3">
-          <span className="grid size-9 shrink-0 place-items-center rounded-full bg-revolut-muted text-revolut-ink">
-            <CategoryIcon category={item.category} />
-          </span>
-          <div className="min-w-0">
-            <p className="truncate font-medium">{item.name}</p>
-            <p className="text-xs text-revolut-ink/50">
-              {item.status === 'declined'
-                ? `Declined · ${item.date}`
-                : item.status === 'approved'
-                  ? `Successful · ${item.date}`
-                  : item.status === 'pending'
-                    ? item.category === 'Withdrawal'
-                      ? `Pending verification · ${item.date}`
-                      : item.receiptSent
-                        ? `Pending · in review · ${item.date}`
-                        : item.receiptName
-                          ? `Pending · ready to send · ${item.date}`
-                          : `Pending · receipt needed · ${item.date}`
-                    : `${item.category} · ${item.date}`}
-            </p>
-          </div>
-        </div>
-        <p className={`shrink-0 font-medium tabular-nums ${item.status === 'declined' ? 'text-red-700' : item.status === 'pending' ? 'text-amber-700' : positive ? 'text-emerald-700' : ''}`}>
-          {item.status === 'declined' ? 'Declined ' : item.status === 'pending' ? 'Pending ' : positive ? '+' : ''}
-          {formatMoney(item.amount, currency)}
-        </p>
-      </Link>
-    </li>
-  )
-}
-
-function CategoryIcon({ category }: { category: string }) {
-  const path =
-    category === 'Income' || category === 'Top up'
-      ? 'M10 15V5M6 9l4-4 4 4'
-      : category === 'Transfer'
-        ? 'M4 10h12M12 6l4 4-4 4'
-        : category === 'Transport'
-          ? 'M5 14V7h10v7M7 14v2M13 14v2M5 10h10'
-          : category === 'Bills'
-            ? 'M6 4h8v12H6zM8 8h4M8 11h4'
-            : category === 'Groceries'
-              ? 'M5 7h10l-1 9H6L5 7Zm2-2a3 3 0 0 1 6 0'
-              : category === 'Savings'
-                ? 'M4 14c2-5 10-5 12 0M10 8V5'
-                : 'M6 6h8v8H6z'
-  return (
-    <svg viewBox="0 0 20 20" className="size-4" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
-      <path d={path} />
-    </svg>
   )
 }

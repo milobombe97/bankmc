@@ -4,6 +4,11 @@ import { ledgerKey, type Transaction } from './banking'
 import type { StoredFile } from './files'
 import { type KycFileKind, kycFileKey, saveStoredFile } from './fileStore'
 import { supabase } from '../lib/supabase'
+import { sortTransactions } from './transactionsView'
+
+export function normalizeAuthEmail(email: string) {
+  return email.trim().toLowerCase()
+}
 
 type ProfileRow = {
   id: string
@@ -92,7 +97,7 @@ function profilePatch(account: Account) {
 export async function signUpWithSupabase(account: Account): Promise<{ error?: string; account?: Account }> {
   if (!supabase) return { error: 'Supabase is not configured.' }
   const { data, error } = await supabase.auth.signUp({
-    email: account.email,
+    email: normalizeAuthEmail(account.email),
     password: account.password,
     options: { data: { first_name: account.firstName, last_name: account.lastName } },
   })
@@ -118,7 +123,8 @@ export async function signUpWithSupabase(account: Account): Promise<{ error?: st
 
 export async function signInWithSupabase(email: string, password: string): Promise<{ error?: string; account?: Account }> {
   if (!supabase) return { error: 'Supabase is not configured.' }
-  const { data, error } = await supabase.auth.signInWithPassword({ email: email.trim(), password })
+  const normalized = normalizeAuthEmail(email)
+  const { data, error } = await supabase.auth.signInWithPassword({ email: normalized, password })
   if (error || !data.user) return { error: error?.message ?? 'Sign-in failed.' }
   const row = await loadProfileRow(data.user.id)
   if (!row) return { error: 'No profile was found for this account.' }
@@ -130,7 +136,7 @@ export async function signInWithSupabase(email: string, password: string): Promi
     await supabase.auth.signOut()
     return { error: 'This account has been suspended. Contact Nevolute Inc. support.' }
   }
-  const profile = accountFromProfile(row, data.user.email ?? email, true)
+  const profile = accountFromProfile(row, data.user.email ?? normalized, true)
   if (profile.role === 'admin' || profile.role === 'super') {
     adoptRemoteAdmin({
       id: profile.id || data.user.id,
@@ -152,23 +158,60 @@ export async function signInWithSupabase(email: string, password: string): Promi
   return { account: profile }
 }
 
-export async function signInStaff(email: string, password: string): Promise<{ error?: string; admin?: AdminUser }> {
-  const result = await signInWithSupabase(email, password)
-  if (result.error || !result.account) return { error: result.error ?? 'Sign-in failed.' }
-  if (result.account.role !== 'admin' && result.account.role !== 'super') {
-    await supabase?.auth.signOut()
-    return { error: 'This email is a client account.' }
+/** Admin portal only — never writes a client session when credentials belong to staff. */
+export async function signInStaffForAdminPortal(
+  email: string,
+  password: string,
+): Promise<{ error?: string; admin?: AdminUser; account?: Account }> {
+  if (!supabase) return { error: 'Supabase is not configured.' }
+  const normalized = normalizeAuthEmail(email)
+  const { data, error } = await supabase.auth.signInWithPassword({ email: normalized, password })
+  if (error || !data.user) {
+    return { error: error?.message ?? 'Sign-in failed.' }
   }
+
+  const row = await loadProfileRow(data.user.id)
+  if (!row) {
+    await supabase.auth.signOut()
+    return { error: 'This login has no profile. Add the person again under Admin → Admins with their email and password.' }
+  }
+  if (row.status === 'deleted') {
+    await supabase.auth.signOut()
+    return { error: 'This account has been closed.' }
+  }
+  if (row.status !== 'active') {
+    await supabase.auth.signOut()
+    return { error: 'This staff account is not active. Contact your super admin.' }
+  }
+  if (row.role !== 'admin' && row.role !== 'super') {
+    await supabase.auth.signOut()
+    signOutAdmin()
+    const profile = accountFromProfile(row, data.user.email ?? normalized, false)
+    return {
+      error: 'This email is a client account. Create a staff login under Admin → Admins (or use a different email).',
+      account: profile,
+    }
+  }
+
+  const profile = accountFromProfile(row, data.user.email ?? normalized, true)
+  const staffRole: AdminUser['role'] = row.role === 'super' ? 'super' : 'admin'
   const admin: AdminUser = {
-    id: result.account.id || '',
-    firstName: result.account.firstName,
-    lastName: result.account.lastName,
-    email: result.account.email,
+    id: profile.id || data.user.id,
+    firstName: profile.firstName,
+    lastName: profile.lastName,
+    email: profile.email,
     password: '',
-    role: result.account.role,
+    role: staffRole,
   }
   adoptRemoteAdmin(admin)
-  return { admin }
+  await pullClients()
+  return { admin, account: profile }
+}
+
+export async function signInStaff(email: string, password: string): Promise<{ error?: string; admin?: AdminUser }> {
+  const result = await signInStaffForAdminPortal(email, password)
+  if (result.error || !result.admin) return { error: result.error ?? 'Sign-in failed.' }
+  return { admin: result.admin }
 }
 
 export async function restoreSupabaseSession() {
@@ -529,9 +572,14 @@ function transactionFromRow(row: TransactionRow): Transaction {
 
 export async function pullTransactionsForUser(userId: string) {
   if (!supabase) return
-  const { data, error } = await supabase.from('transactions').select('*').eq('user_id', userId)
+  const { data, error } = await supabase
+    .from('transactions')
+    .select('*')
+    .eq('user_id', userId)
+    .order('date', { ascending: false })
+    .order('created_at', { ascending: false })
   if (error || !data) return
-  const entries = (data as TransactionRow[]).map(transactionFromRow)
+  const entries = sortTransactions((data as TransactionRow[]).map(transactionFromRow))
   localStorage.setItem(ledgerKey(userId), JSON.stringify(entries))
   window.dispatchEvent(new Event('ledger-changed'))
 }
@@ -647,7 +695,7 @@ export async function createStaffOnRemote(entry: {
     action: 'create',
     firstName: entry.firstName,
     lastName: entry.lastName,
-    email: entry.email,
+    email: normalizeAuthEmail(entry.email),
     password: entry.password,
   })
 }

@@ -17,6 +17,7 @@ import { DashboardPayments } from './pages/dashboard/DashboardPayments'
 import { DashboardProfile } from './pages/dashboard/DashboardProfile'
 import { DashboardSettings } from './pages/dashboard/DashboardSettings'
 import { DashboardTopUp } from './pages/dashboard/DashboardTopUp'
+import { DashboardTransactions } from './pages/dashboard/DashboardTransactions'
 import { DashboardWithdraw } from './pages/dashboard/DashboardWithdraw'
 import { AdminClientPage } from './pages/admin/AdminClientPage'
 import { AdminKycDetail } from './pages/admin/AdminKycDetail'
@@ -111,6 +112,7 @@ export default function App() {
         }
       >
         <Route index element={<DashboardHome />} />
+        <Route path="transactions" element={<DashboardTransactions />} />
         <Route path="topup" element={<DashboardTopUp />} />
         <Route path="withdraw" element={<DashboardWithdraw />} />
         <Route path="payments" element={<DashboardPayments />} />

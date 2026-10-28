@@ -2,7 +2,14 @@ import { createContext, useContext, useEffect, useMemo, useState, type ReactNode
 import type { Session } from '@supabase/supabase-js'
 import { signOutAdmin } from './admins'
 import { loadAccount, saveAccount, type Account } from './session'
-import { fetchStaffRole, restoreSupabaseSession, signInWithSupabase, signUpWithSupabase } from '../data/remote'
+import type { AdminUser } from './admins'
+import {
+  fetchStaffRole,
+  restoreSupabaseSession,
+  signInStaffForAdminPortal,
+  signInWithSupabase,
+  signUpWithSupabase,
+} from '../data/remote'
 import { supabase, supabaseEnabled } from '../lib/supabase'
 
 type AuthResult = { error?: string; account?: Account }
@@ -15,6 +22,7 @@ type AuthContextValue = {
   configured: boolean
   signUp: (account: Account) => Promise<AuthResult>
   signIn: (email: string, password: string) => Promise<AuthResult>
+  signInAsStaff: (email: string, password: string) => Promise<{ error?: string; admin?: AdminUser }>
   signOut: () => Promise<void>
 }
 
@@ -95,6 +103,15 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         const next = { ...account, signedIn: true }
         saveAccount(next)
         return { account: next }
+      },
+      async signInAsStaff(email, password) {
+        if (!supabase) return { error: 'Supabase is not configured.' }
+        const result = await signInStaffForAdminPortal(email, password)
+        if (result.error || !result.admin) return { error: result.error ?? 'Sign-in failed.' }
+        const { data } = await supabase.auth.getSession()
+        setSession(data.session)
+        setStaffRole(result.admin.role)
+        return { admin: result.admin }
       },
       async signOut() {
         const account = loadAccount()

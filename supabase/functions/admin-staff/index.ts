@@ -90,14 +90,53 @@ Deno.serve(async (req) => {
           createError.message.includes('duplicate')
 
         if (alreadyRegistered) {
-          const { data: existingProfile } = await admin
+          let existingProfile: { id: string; role: string; status: string } | null = null
+          const { data: byEmail } = await admin
             .from('profiles')
             .select('id, role, status')
             .ilike('email', email)
             .maybeSingle()
+          existingProfile = byEmail
+
+          if (!existingProfile) {
+            const { data: userPage, error: listError } = await admin.auth.admin.listUsers({ page: 1, perPage: 1000 })
+            if (!listError && userPage?.users) {
+              const authUser = userPage.users.find((u) => u.email?.trim().toLowerCase() === email)
+              if (authUser) {
+                const { data: byId } = await admin
+                  .from('profiles')
+                  .select('id, role, status')
+                  .eq('id', authUser.id)
+                  .maybeSingle()
+                existingProfile = byId
+              }
+            }
+          }
 
           if (existingProfile?.role === 'admin' || existingProfile?.role === 'super') {
-            return json({ error: 'That email already belongs to a staff account. Reset the password on their profile page.' }, 400)
+            const { error: passwordError } = await admin.auth.admin.updateUserById(existingProfile.id, {
+              password,
+              email_confirm: true,
+            })
+            if (passwordError) return json({ error: passwordError.message }, 400)
+            const { error: profileError } = await admin
+              .from('profiles')
+              .update({
+                first_name: firstName,
+                last_name: lastName,
+                email,
+              })
+              .eq('id', existingProfile.id)
+            if (profileError) return json({ error: profileError.message }, 500)
+            return json({
+              admin: {
+                id: existingProfile.id,
+                email,
+                firstName,
+                lastName,
+                role: existingProfile.role,
+              },
+            })
           }
 
           if (existingProfile?.id && existingProfile.role === 'customer') {
@@ -139,6 +178,12 @@ Deno.serve(async (req) => {
 
       const userId = created.user?.id
       if (!userId) return json({ error: 'User was not created.' }, 500)
+
+      const { error: syncPasswordError } = await admin.auth.admin.updateUserById(userId, {
+        password,
+        email_confirm: true,
+      })
+      if (syncPasswordError) return json({ error: syncPasswordError.message }, 500)
 
       const { error: profileError } = await admin.from('profiles').upsert(
         {

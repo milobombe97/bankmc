@@ -5,10 +5,13 @@ import { ReceiptDock } from '../../components/ReceiptDock'
 import { useAccount } from '../../auth/useAccount'
 import { accountStatusOf } from '../../data/adminAccounts'
 import { loadTransactions } from '../../data/banking'
+import { subscribeFinancialSync } from '../../data/finance'
 import { buildNotifications, loadReadIds } from '../../data/notifications'
+import { supabaseEnabled } from '../../lib/supabase'
 
 const links = [
   { to: '/dashboard', label: 'Home', end: true, icon: 'home' },
+  { to: '/dashboard/transactions', label: 'Transactions', icon: 'list' },
   { to: '/dashboard/topup', label: 'Add money', icon: 'plus' },
   { to: '/dashboard/withdraw', label: 'Withdraw', icon: 'withdraw' },
   { to: '/dashboard/payments', label: 'Payments', icon: 'arrows' },
@@ -41,6 +44,11 @@ export function DashboardLayout() {
       window.removeEventListener('account-changed', sync)
     }
   }, [])
+
+  useEffect(() => {
+    if (!account?.id || !supabaseEnabled()) return
+    return subscribeFinancialSync(account.id)
+  }, [account?.id])
 
   const unread = useMemo(() => {
     const read = loadReadIds()
@@ -226,6 +234,13 @@ function DashIcon({ name }: { name: (typeof links)[number]['icon'] | 'logout' })
       <svg {...common}>
         <path d="M3.5 8.8 10 3.5l6.5 5.3" />
         <path d="M5.5 8.2V16h9V8.2" />
+      </svg>
+    )
+  }
+  if (name === 'list') {
+    return (
+      <svg {...common}>
+        <path d="M4.5 6h11M4.5 10h11M4.5 14h11" />
       </svg>
     )
   }

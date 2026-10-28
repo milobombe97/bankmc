@@ -2,6 +2,7 @@ import { loadAccount } from '../auth/session'
 import { supabaseEnabled } from '../lib/supabase'
 import { ensureCanTransact } from './adminAccounts'
 import { loadPostedBalances } from './balances'
+import { sortTransactions } from './transactionsView'
 import { receiptFileKey, saveStoredFile } from './fileStore'
 import type { StoredFile } from './files'
 
@@ -109,7 +110,7 @@ export function loadTransactions(): Transaction[] {
   try {
     const raw = localStorage.getItem(ledgerKey())
     if (!raw) return []
-    return JSON.parse(raw) as Transaction[]
+    return sortTransactions(JSON.parse(raw) as Transaction[])
   } catch {
     return []
   }

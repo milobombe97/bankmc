@@ -13,14 +13,14 @@ function staffLoginError(remote: { error?: string; account?: { role?: string } }
   }
   const message = remote.error ?? 'Email or password was not accepted.'
   if (message.toLowerCase().includes('invalid login credentials')) {
-    return 'Email or password is incorrect. Use the password set when someone added you under Admin → Admins, and use Admin login (not Client login).'
+    return 'Email or password is incorrect. Ask a signed-in admin to add you again under Admin → Admins using the same email and a new password (that updates your login), then sign in here — not on Client login.'
   }
   return message
 }
 
 export function AdminLoginPage() {
   const admin = useAdmin()
-  const { configured, signIn, signOut } = useAuth()
+  const { configured, signInAsStaff, signOut } = useAuth()
   const navigate = useNavigate()
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
@@ -31,13 +31,15 @@ export function AdminLoginPage() {
   async function onSubmit(event: FormEvent) {
     event.preventDefault()
     if (configured) {
-      const remote = await signIn(email, password)
-      if (!remote.error && (remote.account?.role === 'admin' || remote.account?.role === 'super')) {
+      const result = await signInAsStaff(email, password)
+      if (!result.error && result.admin) {
         navigate('/admin')
         return
       }
-      await signOut()
-      setError(staffLoginError(remote))
+      if (result.error) {
+        await signOut()
+        setError(staffLoginError({ error: result.error, account: undefined }))
+      }
       return
     }
     const signedIn = signInAdmin(email, password)

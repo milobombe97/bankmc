@@ -88,6 +88,19 @@ async function dispatchPendingFromIncoming(incomingRecord: Record<string, unknow
   return { handled: true as const, event: 'transfer_p2p_pending' }
 }
 
+/** Instant P2P inserts outgoing then incoming; email runs after the incoming row exists. */
+async function dispatchCompletedFromIncoming(incomingRecord: Record<string, unknown>) {
+  const inId = String(incomingRecord.id ?? '')
+  if (!inId.endsWith('-in')) return { handled: false as const, reason: 'not incoming leg' }
+  const outId = inId.slice(0, -3)
+  const outgoing = await getTransaction(outId)
+  if (!outgoing) return { handled: false as const, reason: 'outgoing missing' }
+  const built = await buildP2PContext(outgoing as unknown as Record<string, unknown>, 'completed')
+  if ('error' in built) return { handled: false as const, reason: built.error }
+  await sendP2PTransferEmails(built.ctx)
+  return { handled: true as const, event: 'transfer_p2p' }
+}
+
 async function dispatchTransfer(record: Record<string, unknown>, status: 'pending' | 'completed') {
   const txId = String(record.id ?? '')
   const amount = Number(record.amount)
@@ -284,6 +297,7 @@ export async function dispatchTransactionalEmail(payload: WebhookPayload) {
     const status = String(record.status ?? '')
     const amount = Number(record.amount)
     const method = String(record.method ?? '')
+    const txId = String(record.id ?? '')
 
     if (method === 'Admin' && status === 'approved') {
       const userId = String(record.user_id)
@@ -308,14 +322,16 @@ export async function dispatchTransactionalEmail(payload: WebhookPayload) {
     }
 
     if (category === 'Transfer' && status === 'pending') {
-      const txId = String(record.id ?? '')
       if (txId.endsWith('-in')) {
         return await dispatchPendingFromIncoming(record)
       }
       return { handled: false, reason: 'await incoming leg' }
     }
     if (category === 'Transfer' && status === 'approved') {
-      return await dispatchTransfer(record, 'completed')
+      if (txId.endsWith('-in')) {
+        return await dispatchCompletedFromIncoming(record)
+      }
+      return { handled: false, reason: 'await incoming leg for email' }
     }
     return { handled: false, reason: 'not transfer' }
   }

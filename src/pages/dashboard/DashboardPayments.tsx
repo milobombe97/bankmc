@@ -1,7 +1,12 @@
 import { type FormEvent, useEffect, useState } from 'react'
 import { useAccount } from '../../auth/useAccount'
 import { accountBalance, availableBalance, bankAccounts, formatMoney, primaryAccountId, recordPending } from '../../data/banking'
-import { assertTransferAmount, pullFinancialState, transferToUser } from '../../data/finance'
+import {
+  emptyMethodFieldValues,
+  formatPaymentMethodDetails,
+  validatePaymentMethodFields,
+} from '../../data/paymentMethodFields'
+import { assertTransferAmount, requestExternalPayment, transferToUser } from '../../data/finance'
 import { supabaseEnabled } from '../../lib/supabase'
 import { keepMethod } from '../../data/payoutMethods'
 import { Button } from '../../components/Button'
@@ -9,10 +14,14 @@ import { CountrySelect } from '../../components/CountrySelect'
 import { AccountMark } from '../../components/Flags'
 import { Field } from '../../components/Field'
 import { MethodChoices, methodLabel } from '../../components/MethodChoices'
+import { PaymentMethodFields } from '../../components/PaymentMethodFields'
 import { IconText } from '../../components/PasswordInput'
 import { CryptoCurrencySelect, paymentMethodLabel } from '../../components/CryptoCurrencySelect'
 import { SelectMenu } from '../../components/SelectMenu'
 import { type CryptoAssetId } from '../../data/cryptoAssets'
+
+const pendingNotice =
+  'Your payment is pending. It will appear in activity and move money only after Nevolute Inc. approves it.'
 
 export function DashboardPayments() {
   const profile = useAccount()
@@ -21,6 +30,7 @@ export function DashboardPayments() {
   const [recipient, setRecipient] = useState('')
   const [method, setMethod] = useState(() => keepMethod(country, 'fps'))
   const [coin, setCoin] = useState<CryptoAssetId>('BTC')
+  const [methodFields, setMethodFields] = useState(() => emptyMethodFieldValues(method))
   const [amount, setAmount] = useState('')
   const [error, setError] = useState('')
   const [submitted, setSubmitted] = useState('')
@@ -28,13 +38,12 @@ export function DashboardPayments() {
   const source = bankAccounts.find((account) => account.id === from) ?? bankAccounts[0]
 
   useEffect(() => {
-    if (!profile?.id || !supabaseEnabled()) return
-    void pullFinancialState(profile.id)
-  }, [profile?.id])
-
-  useEffect(() => {
     setMethod((current) => keepMethod(country, current))
   }, [country])
+
+  useEffect(() => {
+    setMethodFields(emptyMethodFieldValues(method))
+  }, [method])
 
   async function onSubmit(event: FormEvent) {
     event.preventDefault()
@@ -48,6 +57,11 @@ export function DashboardPayments() {
       setError('Enter an amount greater than zero.')
       return
     }
+    const fieldError = validatePaymentMethodFields(method, methodFields)
+    if (fieldError) {
+      setError(fieldError)
+      return
+    }
     if (profile?.id && supabaseEnabled()) {
       const limit = await assertTransferAmount(profile.id, source.id, value)
       if (limit?.error) {
@@ -59,24 +73,57 @@ export function DashboardPayments() {
       return
     }
     const label = paymentMethodLabel(country, method, methodLabel, coin)
-    if (target.includes('@')) {
-      const result = await transferToUser(source.id, target, value, `${target} · ${label} · ${country}`)
+    const methodLine = `${label} · ${country}`
+    const payeeDetails = formatPaymentMethodDetails(method, methodFields)
+    const activityName = `${target} · ${methodLine}`
+
+    if (target.includes('@') && supabaseEnabled()) {
+      const result = await transferToUser(source.id, target, value, activityName, methodLine, payeeDetails)
       if ('error' in result && result.error) {
         setError(result.error)
         return
       }
       if ('localOnly' in result && result.localOnly) {
+        setSubmitted('')
         setError('Connect Supabase to send money to another Nevolute customer by email.')
         return
       }
-      setSubmitted(`Sent ${formatMoney(value, source.currency)} to ${target}.`)
+      setSubmitted(`Submitted ${formatMoney(value, source.currency)} to ${target}. ${pendingNotice}`)
+    } else if (supabaseEnabled()) {
+      const result = await requestExternalPayment({
+        accountCode: source.id,
+        payeeName: target,
+        amount: value,
+        method: methodLine,
+        payeeDetails,
+        country,
+        memo: activityName,
+      })
+      if ('error' in result && result.error) {
+        setError(result.error)
+        return
+      }
+      if ('localOnly' in result && result.localOnly) {
+        recordPending({
+          accountId: source.id,
+          name: activityName,
+          method: payeeDetails ? `${methodLine} · ${payeeDetails}` : methodLine,
+          amount: -value,
+          category: 'Payment',
+        })
+        setSubmitted(`${pendingNotice}`)
+      } else {
+        setSubmitted(`Submitted ${formatMoney(value, source.currency)} to ${target}. ${pendingNotice}`)
+      }
     } else {
       recordPending({
         accountId: source.id,
-        name: `${target} · ${label}`,
-        method: label,
+        name: activityName,
+        method: payeeDetails ? `${methodLine} · ${payeeDetails}` : methodLine,
         amount: -value,
+        category: 'Payment',
       })
+      setSubmitted(pendingNotice)
     }
     setRecipient('')
     setAmount('')
@@ -88,7 +135,7 @@ export function DashboardPayments() {
       <div>
         <h1 className="text-3xl font-medium tracking-[-0.04em]">Send money</h1>
         <p className="mt-2 text-sm text-revolut-ink/60">
-          Send to another Nevolute customer by email (funds move immediately), or enter a name for an external payment that stays pending until support approves it.
+          Choose how you are paying, enter the details for that method, and submit. Every send stays pending until Nevolute Inc. approves it.
         </p>
         <form className="mt-8 space-y-4" onSubmit={onSubmit}>
           <Field label="From">
@@ -107,7 +154,7 @@ export function DashboardPayments() {
             <IconText
               icon="user"
               value={recipient}
-              placeholder="Email for Nevolute transfer, or payee name"
+              placeholder="Email for Nevolute customer, or payee name"
               onChange={(event) => setRecipient(event.target.value)}
             />
           </Field>
@@ -118,6 +165,7 @@ export function DashboardPayments() {
           {method === 'crypto' && (
             <CryptoCurrencySelect value={coin} onChange={setCoin} hint="Choose which cryptocurrency you are paying with." />
           )}
+          <PaymentMethodFields methodId={method} values={methodFields} onChange={setMethodFields} />
           <Field label={`Amount (${source.currency})`}>
             <IconText
               icon="banknote"
@@ -127,7 +175,7 @@ export function DashboardPayments() {
               onChange={(event) => setAmount(event.target.value)}
             />
           </Field>
-          <Button type="submit">Send</Button>
+          <Button type="submit">Submit payment</Button>
           {submitted ? (
             <p className="text-sm font-medium text-amber-800" role="status">
               {submitted}
