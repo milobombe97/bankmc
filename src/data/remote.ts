@@ -280,12 +280,12 @@ export async function uploadReceipt(
   amount: number,
   accountCode?: string,
   currency?: string,
-) {
-  if (!supabase || !file.dataUrl) return undefined
+): Promise<{ path?: string; error?: string }> {
+  if (!supabase || !file.dataUrl) return { error: 'Sign in and try uploading again.' }
   const { data } = await supabase.auth.getUser()
-  if (!data.user) return undefined
+  if (!data.user) return { error: 'Sign in to upload a receipt.' }
   const owner = clientId && clientId !== 'primary' ? clientId : data.user.id
-  if (owner !== data.user.id) return undefined
+  if (owner !== data.user.id) return { error: 'This receipt must be uploaded from your own account.' }
 
   const path = `${data.user.id}/${transactionId}`
   const response = await fetch(file.dataUrl)
@@ -298,7 +298,7 @@ export async function uploadReceipt(
 
   if (uploadError) {
     console.error('Storage upload error:', uploadError)
-    return undefined
+    return { error: uploadError.message }
   }
 
   const tx = (await import('./banking')).loadClientTransactions(owner).find((item) => item.id === transactionId)
@@ -314,10 +314,10 @@ export async function uploadReceipt(
 
   if ('error' in result && result.error) {
     console.error('Receipt row insert error:', result.error)
-    return undefined
+    return { error: result.error }
   }
 
-  return path
+  return { path }
 }
 
 const kycStorageSegment: Record<KycFileKind, string> = {

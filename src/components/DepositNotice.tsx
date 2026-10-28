@@ -21,7 +21,7 @@ export function DepositNotice({
   stored?: boolean
   sent?: boolean
   outcome?: 'pending' | 'approved' | 'declined'
-  onUpload: (file: StoredFile) => void | Promise<void>
+  onUpload: (file: StoredFile) => Promise<{ error?: string } | { ok?: true } | void> | { error?: string } | { ok?: true } | void
   onSend: () => void
   onDismiss?: () => void
 }) {
@@ -32,7 +32,10 @@ export function DepositNotice({
     if (!file) return
     setError('')
     try {
-      await onUpload(await readStoredFile(file))
+      const result = await onUpload(await readStoredFile(file))
+      if (result && 'error' in result && result.error) {
+        setError(result.error)
+      }
     } catch {
       setError('That file could not be saved. Use a photo or a PDF and try again.')
     }

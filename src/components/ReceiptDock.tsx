@@ -132,7 +132,7 @@ export function ReceiptDock() {
             stored={Boolean(item.receiptStored || item.receiptFile?.dataUrl)}
             sent={item.receiptSent}
             outcome={item.status === 'approved' || item.status === 'declined' ? item.status : 'pending'}
-            onUpload={(receiptName) => attachReceipt(item.id, receiptName, clientId)}
+            onUpload={(file) => attachReceipt(item.id, file, clientId)}
             onSend={() => void markReceiptSent(item.id, clientId)}
             onDismiss={() => dismissReceipt(item.id, clientId)}
           />

@@ -153,15 +153,15 @@ export async function attachReceipt(id: string, receipt: string | StoredFile, cl
   const activeId = clientId || loadAccount()?.id || 'primary'
   const receiptName = typeof receipt === 'string' ? receipt : receipt.name
   let receiptPath: string | undefined
-  
+  let uploadError: string | undefined
+
   if (typeof receipt !== 'string' && receipt.dataUrl) {
     await saveStoredFile(receiptFileKey(activeId, id), receipt)
     const remote = await import('./remote')
-    // Pass the amount here! If amount isn't passed directly, grab it from the current transaction item
     const tx = extraTransactions(activeId).find((t) => t.id === id)
     const txAmount = amount ?? tx?.amount ?? 0
     const account = bankAccounts.find((item) => item.id === tx?.accountId)
-    receiptPath = await remote.uploadReceipt(
+    const uploaded = await remote.uploadReceipt(
       activeId,
       id,
       receipt,
@@ -169,8 +169,10 @@ export async function attachReceipt(id: string, receipt: string | StoredFile, cl
       tx?.accountId,
       account?.currency,
     )
+    if (uploaded.error) uploadError = uploaded.error
+    receiptPath = uploaded.path
   }
-  
+
   const hasBytes = typeof receipt !== 'string' && Boolean(receipt.dataUrl)
   writeExtra(
     extraTransactions(activeId).map((item) => {
@@ -186,6 +188,9 @@ export async function attachReceipt(id: string, receipt: string | StoredFile, cl
     }),
     activeId,
   )
+
+  if (uploadError) return { error: uploadError }
+  return { ok: true as const }
 }
 export function paymentMethodName(item: Transaction) {
   if (item.method) return item.method
