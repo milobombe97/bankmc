@@ -1,6 +1,6 @@
 import { type FormEvent, useEffect, useState } from 'react'
 import { useAccount } from '../../auth/useAccount'
-import { accountBalance, availableBalance, bankAccounts, formatMoney, recordPending } from '../../data/banking'
+import { accountBalance, availableBalance, bankAccounts, formatMoney, primaryAccountId, recordPending } from '../../data/banking'
 import { assertTransferAmount, pullFinancialState, transferToUser } from '../../data/finance'
 import { supabaseEnabled } from '../../lib/supabase'
 import { keepMethod } from '../../data/payoutMethods'
@@ -17,7 +17,7 @@ import { type CryptoAssetId } from '../../data/cryptoAssets'
 export function DashboardPayments() {
   const profile = useAccount()
   const [country, setCountry] = useState(profile?.kyc?.country || 'United Kingdom')
-  const [from, setFrom] = useState('usd')
+  const [from, setFrom] = useState(primaryAccountId)
   const [recipient, setRecipient] = useState('')
   const [method, setMethod] = useState(() => keepMethod(country, 'fps'))
   const [coin, setCoin] = useState<CryptoAssetId>('BTC')

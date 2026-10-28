@@ -1,6 +1,6 @@
 import { type FormEvent, useEffect, useState } from 'react'
 import { useAccount } from '../../auth/useAccount'
-import { availableBalance, bankAccounts, formatMoney, recordPending } from '../../data/banking'
+import { availableBalance, bankAccounts, formatMoney, primaryAccountId, recordPending } from '../../data/banking'
 import { requestWithdrawal } from '../../data/finance'
 import { keepMethod } from '../../data/payoutMethods'
 import { Button } from '../../components/Button'
@@ -16,7 +16,7 @@ import { type CryptoAssetId } from '../../data/cryptoAssets'
 export function DashboardWithdraw() {
   const profile = useAccount()
   const [country, setCountry] = useState(profile?.kyc?.country || 'United Kingdom')
-  const [from, setFrom] = useState('usd')
+  const [from, setFrom] = useState(primaryAccountId)
   const [payee, setPayee] = useState('')
   const [method, setMethod] = useState(() => keepMethod(country, 'bank'))
   const [coin, setCoin] = useState<CryptoAssetId>('BTC')

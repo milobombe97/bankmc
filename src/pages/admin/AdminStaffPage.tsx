@@ -1,4 +1,4 @@
-import { Link, Navigate, useParams } from 'react-router-dom'
+import { Link, useParams } from 'react-router-dom'
 import { loadAdmins } from '../../auth/admins'
 import { useAdmin } from '../../auth/useAdmin'
 import { AdminProfileForm } from './AdminProfileForm'
@@ -11,7 +11,6 @@ export function AdminStaffPage() {
   const admin = loadAdmins().find((item) => item.id === id)
   void tick
 
-  if (actor && actor.role !== 'super') return <Navigate to="/admin/settings" replace />
   if (!actor) return null
   if (!admin) {
     return (

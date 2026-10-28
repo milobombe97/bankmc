@@ -7,6 +7,17 @@ import { Button } from '../../components/Button'
 import { Field } from '../../components/Field'
 import { IconText, PasswordInput } from '../../components/PasswordInput'
 
+function staffLoginError(remote: { error?: string; account?: { role?: string } }) {
+  if (remote.account && remote.account.role !== 'admin' && remote.account.role !== 'super') {
+    return 'This email is a client account. Promote them under Admin → Admins, or use a staff email.'
+  }
+  const message = remote.error ?? 'Email or password was not accepted.'
+  if (message.toLowerCase().includes('invalid login credentials')) {
+    return 'Email or password is incorrect. Use the password set when someone added you under Admin → Admins, and use Admin login (not Client login).'
+  }
+  return message
+}
+
 export function AdminLoginPage() {
   const admin = useAdmin()
   const { configured, signIn, signOut } = useAuth()
@@ -26,13 +37,7 @@ export function AdminLoginPage() {
         return
       }
       await signOut()
-      setError(
-        remote.account
-          ? 'This email is a client account. Use a staff account to access the admin area.'
-          : remote.error?.toLowerCase().includes('invalid login credentials')
-            ? 'Invalid email or password. Staff must be added under Admin → Admins (creates a Supabase login), not only in the browser demo list.'
-            : remote.error ?? 'Email or password was not accepted.',
-      )
+      setError(staffLoginError(remote))
       return
     }
     const signedIn = signInAdmin(email, password)
@@ -50,7 +55,7 @@ export function AdminLoginPage() {
       </Link>
       <h1 className="mt-8 text-3xl font-medium tracking-[-0.04em]">Admin login</h1>
       <p className="mt-2 text-sm text-revolut-ink/60">
-        Staff-only access for Nevolute Inc. Sign in with the work email and password assigned to your team account.
+        Staff sign in here. New admins are created in the admin area under Admins (any signed-in admin can add someone).
       </p>
       <form className="mt-8 space-y-4" onSubmit={onSubmit}>
         <Field label="Email">

@@ -13,7 +13,7 @@ const links: { to: string; label: string; icon: FieldIconName; end?: boolean; su
   { to: '/admin/withdrawals', label: 'Withdrawals', icon: 'withdraw' },
   { to: '/admin/notifications', label: 'Notifications', icon: 'bell' },
   { to: '/admin/settings', label: 'Profile', icon: 'user' },
-  { to: '/admin/team', label: 'Admins', icon: 'lock', superOnly: true },
+  { to: '/admin/team', label: 'Admins', icon: 'lock' },
 ]
 
 export function AdminLayout() {

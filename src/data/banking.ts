@@ -38,7 +38,22 @@ export type Transaction = {
   receiptDismissed?: boolean
 }
 
+export const primaryAccountId = 'usd'
+
 export const bankAccounts: BankAccount[] = [
+  {
+    id: 'usd',
+    name: 'US Dollar',
+    currency: 'USD',
+    balance: 0,
+    detail: 'Checking · Nevolute Inc.',
+    fields: [
+      { label: 'Bank name', value: 'Nevolute Inc.' },
+      { label: 'Routing number', value: '999999992' },
+      { label: 'Account number', value: '009912340001' },
+      { label: 'Account type', value: 'Checking' },
+    ],
+  },
   {
     id: 'personal',
     name: 'Personal',
@@ -78,19 +93,6 @@ export const bankAccounts: BankAccount[] = [
       { label: 'IBAN', value: 'EU12 REVO 0099 8765 4321' },
       { label: 'BIC', value: 'REVODMM1' },
       { label: 'Account number', value: '87654321' },
-    ],
-  },
-  {
-    id: 'usd',
-    name: 'US Dollar',
-    currency: 'USD',
-    balance: 0,
-    detail: 'Checking · Nevolute Inc.',
-    fields: [
-      { label: 'Bank name', value: 'Nevolute Inc.' },
-      { label: 'Routing number', value: '999999992' },
-      { label: 'Account number', value: '009912340001' },
-      { label: 'Account type', value: 'Checking' },
     ],
   },
 ]
@@ -244,7 +246,7 @@ export async function markReceiptSent(id: string, clientId?: string) {
     const result = await finance.submitReceiptRecord({
       accountCode: tx.accountId,
       amount: Math.abs(tx.amount),
-      currency: account?.currency || 'GBP',
+      currency: account?.currency || 'USD',
       storagePath: tx.receiptPath,
       fileName: tx.receiptName || 'Receipt',
       transactionId: id,

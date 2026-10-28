@@ -85,7 +85,9 @@ export function updateAdmin(
   const actor = admins.find((item) => item.id === actorId)
   const target = admins.find((item) => item.id === id)
   if (!actor || !target) return 'That admin could not be found.'
-  if (actor.role !== 'super' && actor.id !== id) return 'Only the super admin can edit another admin.'
+  if (target.role === 'super' && actor.id !== id) {
+    return 'The super admin profile can only be edited by signing in as that account.'
+  }
   const email = patch.email.trim()
   if (admins.some((item) => item.id !== id && item.email.toLowerCase() === email.toLowerCase())) {
     return 'Another admin already uses that email.'

@@ -1,6 +1,6 @@
 import { type FormEvent, useEffect, useState } from 'react'
 import { useAccount } from '../../auth/useAccount'
-import { accountBalance, bankAccounts, formatMoney, recordPending } from '../../data/banking'
+import { accountBalance, bankAccounts, formatMoney, primaryAccountId, recordPending } from '../../data/banking'
 import { keepMethod, methodsForCountry, residenceCountry } from '../../data/payoutMethods'
 import { Button } from '../../components/Button'
 import { AccountMark } from '../../components/Flags'
@@ -16,7 +16,7 @@ const maxAmount = 10_000
 export function DashboardTopUp() {
   const profile = useAccount()
   const country = residenceCountry(profile?.kyc?.country)
-  const [accountId, setAccountId] = useState('usd')
+  const [accountId, setAccountId] = useState(primaryAccountId)
   const [method, setMethod] = useState(() => keepMethod(country, 'bank'))
   const [coin, setCoin] = useState<CryptoAssetId>('BTC')
   const [payer, setPayer] = useState('')

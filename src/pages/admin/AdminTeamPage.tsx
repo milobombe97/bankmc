@@ -1,5 +1,5 @@
 import { type FormEvent, useEffect, useState } from 'react'
-import { Link, Navigate } from 'react-router-dom'
+import { Link } from 'react-router-dom'
 import { addAdmin, adoptRemoteAdmin, loadAdmins, removeAdmin, type AdminUser } from '../../auth/admins'
 import { useAuth } from '../../auth/AuthContext'
 import { useAdmin } from '../../auth/useAdmin'
@@ -38,9 +38,8 @@ export function AdminTeamPage() {
     })
   }, [remoteStaff, tick])
 
-  if (current && current.role !== 'super') return <Navigate to="/admin" replace />
-
   const admins = remoteStaff ? staff : loadAdmins()
+  const canRemove = current?.role === 'super'
 
   async function onSubmit(event: FormEvent) {
     event.preventDefault()
@@ -68,6 +67,11 @@ export function AdminTeamPage() {
       }
       adoptRemoteAdmin(result.admin)
       setStaff((prev) => [result.admin!, ...prev.filter((item) => item.id !== result.admin!.id)])
+      setFirstName('')
+      setLastName('')
+      setEmail('')
+      setPassword('')
+      return
     } else {
       addAdmin({ firstName: firstName.trim(), lastName: lastName.trim(), email: email.trim(), password })
       setBusy(false)
@@ -84,8 +88,8 @@ export function AdminTeamPage() {
         <h1 className="text-3xl font-medium tracking-[-0.04em]">Admins</h1>
         <p className="mt-2 text-sm text-revolut-ink/60">
           {remoteStaff
-            ? 'Staff sign in with Supabase Auth at Admin login. Adding someone here creates their real login and sets the admin role.'
-            : 'You can edit every admin’s name, email, and password, including your own. Only you can add or remove staff, and the super admin cannot be removed.'}
+            ? 'Add staff here to create their Supabase login (admin role). Any signed-in admin can add people; they then sign in at Admin login.'
+            : 'You can edit every admin’s name, email, and password, including your own. Only the super admin can remove someone from this browser list.'}
         </p>
       </div>
       <ul className="overflow-hidden rounded-[1.5rem] bg-white">
@@ -98,7 +102,7 @@ export function AdminTeamPage() {
             <span className="flex items-center gap-2">
               {admin.role === 'super' && <span className="text-sm text-revolut-ink/55">Super admin</span>}
               <Link to={`/admin/team/${admin.id}`} className="rounded-full border border-revolut-line px-4 py-2 text-sm font-medium">Edit</Link>
-              {admin.role !== 'super' && (
+              {admin.role !== 'super' && canRemove && (
                 <Button type="button" variant="secondary" onClick={() => removeAdmin(admin.id)}>Remove</Button>
               )}
             </span>

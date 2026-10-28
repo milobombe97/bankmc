@@ -64,9 +64,6 @@ Deno.serve(async (req) => {
     const action = String(body.action ?? '')
 
     if (action === 'create') {
-      if (actorRole !== 'super') {
-        return json({ error: 'Only the super admin can add staff accounts.' }, 403)
-      }
       const email = String(body.email ?? '').trim().toLowerCase()
       const password = String(body.password ?? '')
       const firstName = String(body.firstName ?? '').trim()
@@ -106,16 +103,19 @@ Deno.serve(async (req) => {
           if (existingProfile?.id && existingProfile.role === 'customer') {
             const { error: passwordError } = await admin.auth.admin.updateUserById(existingProfile.id, { password })
             if (passwordError) return json({ error: passwordError.message }, 400)
-            const { error: profileError } = await admin
-              .from('profiles')
-              .update({
+            const { error: profileError } = await admin.from('profiles').upsert(
+              {
+                id: existingProfile.id,
                 role: 'admin',
                 email,
                 first_name: firstName,
                 last_name: lastName,
+                phone: '',
                 status: 'active',
-              })
-              .eq('id', existingProfile.id)
+                kyc_status: 'not_started',
+              },
+              { onConflict: 'id' },
+            )
             if (profileError) return json({ error: profileError.message }, 500)
             return json({
               admin: {
@@ -140,16 +140,19 @@ Deno.serve(async (req) => {
       const userId = created.user?.id
       if (!userId) return json({ error: 'User was not created.' }, 500)
 
-      const { error: profileError } = await admin
-        .from('profiles')
-        .update({
+      const { error: profileError } = await admin.from('profiles').upsert(
+        {
+          id: userId,
           role: 'admin',
           email,
           first_name: firstName,
           last_name: lastName,
+          phone: '',
           status: 'active',
-        })
-        .eq('id', userId)
+          kyc_status: 'not_started',
+        },
+        { onConflict: 'id' },
+      )
 
       if (profileError) return json({ error: profileError.message }, 500)
 
@@ -184,9 +187,6 @@ Deno.serve(async (req) => {
         return json({ error: 'That account is not a staff member.' }, 400)
       }
       const editingSelf = userId === actorId
-      if (actorRole !== 'super' && !editingSelf) {
-        return json({ error: 'Only the super admin can edit other staff profiles.' }, 403)
-      }
       if (target.role === 'super' && !editingSelf) {
         return json({ error: 'The super admin profile can only be edited by signing in as that account.' }, 403)
       }

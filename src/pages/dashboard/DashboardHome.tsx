@@ -16,6 +16,7 @@ import {
   bankAccounts,
   formatMoney,
   loadTransactions,
+  primaryAccountId,
   recordPending,
   recordTransfer,
   type Currency,
@@ -228,7 +229,7 @@ function CashBackBanner() {
 
 function AccountDetails() {
   const profile = useAccount()
-  const [accountId, setAccountId] = useState(bankAccounts[0].id)
+  const [accountId, setAccountId] = useState(primaryAccountId)
   const [copied, setCopied] = useState('')
   const account = bankAccounts.find((item) => item.id === accountId) ?? bankAccounts[0]
   const balance = accountBalance(account, profile?.id)
@@ -339,7 +340,7 @@ function ActionIcon({ name }: { name: 'add' | 'withdraw' | 'send' }) {
 function QuickTransfer({ onDone }: { onDone: () => void }) {
   const profile = useAccount()
   const [country, setCountry] = useState(profile?.kyc?.country || 'United Kingdom')
-  const [fromId, setFromId] = useState('usd')
+  const [fromId, setFromId] = useState(primaryAccountId)
   const [toId, setToId] = useState('external')
   const [recipient, setRecipient] = useState('')
   const [method, setMethod] = useState(() => keepMethod(country, 'fps'))
@@ -549,7 +550,7 @@ function QuickTransfer({ onDone }: { onDone: () => void }) {
 
 function TransactionRow({ item }: { item: Transaction }) {
   const account = bankAccounts.find((entry) => entry.id === item.accountId)
-  const currency = account?.currency ?? 'GBP'
+  const currency = account?.currency ?? 'USD'
   const positive = item.amount > 0
   return (
     <li className="border-b border-revolut-line last:border-b-0">
