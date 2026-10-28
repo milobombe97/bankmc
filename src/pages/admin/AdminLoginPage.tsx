@@ -28,7 +28,7 @@ export function AdminLoginPage() {
       await signOut()
       setError(
         remote.account
-          ? 'This email is a client account. Staff must sign in here with info@nevoluteinc.com (or another staff profile).'
+          ? 'This email is a client account. Use a staff account to access the admin area.'
           : remote.error ?? 'Email or password was not accepted.',
       )
       return
@@ -48,7 +48,7 @@ export function AdminLoginPage() {
       </Link>
       <h1 className="mt-8 text-3xl font-medium tracking-[-0.04em]">Admin login</h1>
       <p className="mt-2 text-sm text-revolut-ink/60">
-        Staff access for Nevolute Inc. The first super admin on this browser is admin@nevolute.inc, password admin-pass-1.
+        Staff-only access for Nevolute Inc. Sign in with the work email and password assigned to your team account.
       </p>
       <form className="mt-8 space-y-4" onSubmit={onSubmit}>
         <Field label="Email">
@@ -57,7 +57,7 @@ export function AdminLoginPage() {
             type="email"
             autoComplete="username"
             required
-            placeholder="admin@nevolute.inc"
+            placeholder="Staff email"
             value={email}
             onChange={(event) => {
               setEmail(event.target.value)

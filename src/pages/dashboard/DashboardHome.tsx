@@ -18,10 +18,50 @@ import {
   loadTransactions,
   recordPending,
   recordTransfer,
+  type Currency,
   type Transaction,
 } from '../../data/banking'
 import { transferBetweenOwnAccounts, assertTransferAmount, pullFinancialState, transferToUser } from '../../data/finance'
 import { supabaseEnabled } from '../../lib/supabase'
+
+function balanceTextClass(formatted: string, size: 'card' | 'hero' | 'inline' = 'card') {
+  const len = formatted.length
+  if (size === 'hero') {
+    if (len > 16) return 'text-3xl sm:text-4xl'
+    if (len > 13) return 'text-4xl sm:text-5xl'
+    return 'text-4xl sm:text-5xl'
+  }
+  if (size === 'inline') {
+    if (len > 16) return 'text-sm'
+    if (len > 13) return 'text-base'
+    return 'text-lg'
+  }
+  if (len > 16) return 'text-sm'
+  if (len > 13) return 'text-base'
+  return 'text-lg'
+}
+
+function BalanceAmount({
+  amount,
+  currency,
+  size = 'card',
+  className = '',
+}: {
+  amount: number
+  currency: Currency
+  size?: 'card' | 'hero' | 'inline'
+  className?: string
+}) {
+  const text = formatMoney(amount, currency)
+  return (
+    <p
+      className={`font-medium tabular-nums tracking-tight ${balanceTextClass(text, size)} ${className}`}
+      title={text}
+    >
+      {text}
+    </p>
+  )
+}
 
 export function DashboardHome() {
   const account = useAccount()
@@ -34,6 +74,14 @@ export function DashboardHome() {
     window.addEventListener('ledger-changed', sync)
     return () => window.removeEventListener('ledger-changed', sync)
   }, [])
+
+  useEffect(() => {
+    if (!account?.id || !supabaseEnabled()) return
+    void pullFinancialState(account.id)
+  }, [account?.id])
+
+  const usdAccount = bankAccounts.find((item) => item.id === 'usd') ?? bankAccounts[0]
+  const usdTotal = accountBalance(usdAccount, account?.id)
   const visible = transactions.filter((item) =>
     item.name.toLowerCase().includes(query.trim().toLowerCase()),
   )
@@ -49,9 +97,9 @@ export function DashboardHome() {
 
       <section className="space-y-4">
         <div className="flex flex-col gap-6 rounded-[1.75rem] bg-revolut-ink p-6 text-white sm:flex-row sm:items-end sm:justify-between">
-          <div>
+          <div className="min-w-0">
             <p className="text-sm text-white/60">Total in USD</p>
-            <p className="mt-2 text-5xl font-medium tracking-[-0.045em]">{formatMoney(accountBalance(bankAccounts.find((item) => item.id === 'usd') ?? bankAccounts[0]), 'USD')}</p>
+            <BalanceAmount amount={usdTotal} currency="USD" size="hero" className="mt-2 text-white" />
           </div>
           <div className="flex flex-wrap gap-3">
             <Link
@@ -79,17 +127,19 @@ export function DashboardHome() {
         </div>
         <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
           {bankAccounts.map((item) => (
-            <article key={item.id} className="rounded-2xl bg-white px-4 py-4">
-              <div className="flex w-full items-center justify-between gap-3">
-                <div className="flex min-w-0 items-center gap-3">
-                  <AccountMark id={item.id} currency={item.currency} className="size-8" />
-                  <div className="min-w-0">
-                    <p className="font-medium">{item.name}</p>
-                    <p className="truncate text-xs text-revolut-ink/50">{item.detail}</p>
-                  </div>
+            <article key={item.id} className="flex min-h-[7.5rem] flex-col justify-between gap-3 rounded-2xl bg-white p-4">
+              <div className="flex items-start gap-3">
+                <AccountMark id={item.id} currency={item.currency} className="size-9 shrink-0" />
+                <div className="min-w-0 flex-1">
+                  <p className="font-medium leading-tight">{item.name}</p>
+                  <p className="mt-0.5 line-clamp-2 text-xs leading-snug text-revolut-ink/50">{item.detail}</p>
                 </div>
-                <p className="font-medium tabular-nums">{formatMoney(accountBalance(item), item.currency)}</p>
               </div>
+              <BalanceAmount
+                amount={accountBalance(item, account?.id)}
+                currency={item.currency}
+                className="text-right"
+              />
             </article>
           ))}
         </div>
@@ -175,9 +225,11 @@ function CashBackBanner() {
 }
 
 function AccountDetails() {
+  const profile = useAccount()
   const [accountId, setAccountId] = useState(bankAccounts[0].id)
   const [copied, setCopied] = useState('')
   const account = bankAccounts.find((item) => item.id === accountId) ?? bankAccounts[0]
+  const balance = accountBalance(account, profile?.id)
 
   function copyField(label: string, value: string) {
     const text = value.trim()
@@ -203,12 +255,15 @@ function AccountDetails() {
 
   return (
     <section className="rounded-[1.75rem] bg-white p-5 sm:p-6">
-      <div className="flex flex-wrap items-end justify-between gap-3">
+      <div className="flex flex-col gap-4 border-b border-revolut-line pb-5 sm:flex-row sm:items-end sm:justify-between">
         <div>
           <h2 className="text-xl font-medium tracking-[-0.03em]">Account details</h2>
-          <p className="mt-1 text-sm text-revolut-ink/55">Nevolute Inc. Click a row to copy it.</p>
+          <p className="mt-1 text-sm text-revolut-ink/55">Nevolute Inc. banking details for incoming transfers.</p>
         </div>
-        <p className="text-sm font-medium tabular-nums">{formatMoney(accountBalance(account), account.currency)}</p>
+        <div className="text-left sm:text-right">
+          <p className="text-xs font-medium uppercase tracking-wide text-revolut-ink/45">Posted balance</p>
+          <BalanceAmount amount={balance} currency={account.currency} size="inline" className="mt-1" />
+        </div>
       </div>
       <div className="mt-4 flex flex-wrap gap-2">
         {bankAccounts.map((item) => (
@@ -216,8 +271,8 @@ function AccountDetails() {
             key={item.id}
             type="button"
             aria-pressed={item.id === account.id}
-            className={`inline-flex shrink-0 items-center gap-2 rounded-full px-3 py-1.5 text-sm font-medium ${
-              item.id === account.id ? 'bg-revolut-ink text-white' : 'bg-revolut-muted text-revolut-ink/70'
+            className={`inline-flex shrink-0 items-center gap-2 rounded-full px-3 py-1.5 text-sm font-medium transition ${
+              item.id === account.id ? 'bg-revolut-ink text-white' : 'bg-revolut-muted text-revolut-ink/70 hover:text-revolut-ink'
             }`}
             onClick={() => setAccountId(item.id)}
           >
@@ -226,25 +281,29 @@ function AccountDetails() {
           </button>
         ))}
       </div>
-      <ul className="mt-4 divide-y divide-revolut-line overflow-hidden rounded-2xl border border-revolut-line">
-        {account.fields.map((field) => (
-          <li key={field.label}>
-            <button
-              type="button"
-              className="flex w-full items-center justify-between gap-4 px-4 py-3 text-left hover:bg-revolut-muted"
-              onClick={() => copyField(field.label, field.value)}
-            >
-              <span className="text-sm text-revolut-ink/55">{field.label}</span>
-              <span className="flex items-center gap-3">
-                <span className="font-medium tabular-nums">{field.value}</span>
-                <span className="w-12 text-right text-xs font-medium text-revolut-ink/45">
-                  {copied === field.label ? 'Copied' : 'Copy'}
-                </span>
-              </span>
-            </button>
-          </li>
+      <dl className="mt-5 overflow-hidden rounded-2xl border border-revolut-line">
+        {account.fields.map((field, index) => (
+          <div
+            key={field.label}
+            className={`grid gap-2 px-4 py-3.5 sm:grid-cols-[9rem_minmax(0,1fr)_4.5rem] sm:items-center sm:gap-4 ${
+              index > 0 ? 'border-t border-revolut-line' : ''
+            }`}
+          >
+            <dt className="text-xs font-medium uppercase tracking-wide text-revolut-ink/45">{field.label}</dt>
+            <dd className="min-w-0 break-all font-medium tabular-nums text-sm sm:text-base">{field.value}</dd>
+            <dd className="sm:text-right">
+              <button
+                type="button"
+                className="text-xs font-medium text-revolut-ink/55 hover:text-revolut-ink"
+                onClick={() => copyField(field.label, field.value)}
+              >
+                {copied === field.label ? 'Copied' : 'Copy'}
+              </button>
+            </dd>
+          </div>
         ))}
-      </ul>
+      </dl>
+      <p className="mt-3 text-xs text-revolut-ink/45">Tap copy beside any value to paste it into your bank or wallet app.</p>
     </section>
   )
 }

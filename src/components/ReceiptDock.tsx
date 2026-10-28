@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import { useAccount } from '../auth/useAccount'
 import { attachReceipt, dismissReceipt, loadClientTransactions, markReceiptSent, paymentMethodName } from '../data/banking'
 import { findReceiptFile } from '../data/fileStore'
@@ -28,7 +28,6 @@ export function ReceiptDock() {
     [clientId, tick],
   )
   const [files, setFiles] = useState<Record<string, StoredFile>>({})
-  const countRef = useRef(notices.length)
 
   useEffect(() => {
     if (!clientId) return
@@ -72,14 +71,6 @@ export function ReceiptDock() {
       active = false
     }
   }, [clientId, notices])
-
-  useEffect(() => {
-    if (notices.length > countRef.current) {
-      setMinimized(false)
-      if (clientId) localStorage.setItem(dockKey(clientId), '0')
-    }
-    countRef.current = notices.length
-  }, [clientId, notices.length])
 
   if (!account?.email || notices.length === 0) return null
 
