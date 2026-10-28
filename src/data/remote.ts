@@ -1,4 +1,4 @@
-import { adoptRemoteAdmin, type AdminUser } from '../auth/admins'
+import { adoptRemoteAdmin, signOutAdmin, type AdminUser } from '../auth/admins'
 import { clearAccount, saveAccount, saveClients, type Account, type KycStatus } from '../auth/session'
 import { ledgerKey, type Transaction } from './banking'
 import type { StoredFile } from './files'
@@ -143,6 +143,7 @@ export async function signInWithSupabase(email: string, password: string): Promi
     await pullClients()
     return { account: profile }
   }
+  signOutAdmin()
   saveAccount(profile)
   if (profile.id) {
     await pullTransactionsForUser(profile.id)
@@ -192,8 +193,10 @@ export async function restoreSupabaseSession() {
   if (profile.accountStatus === 'suspended' || profile.accountStatus === 'deleted') {
     await supabase.auth.signOut()
     clearAccount()
+    signOutAdmin()
     return
   }
+  signOutAdmin()
   saveAccount(profile)
   if (profile.id) {
     await pullTransactionsForUser(profile.id)
@@ -206,6 +209,13 @@ async function loadProfileRow(id: string) {
   const { data, error } = await supabase.from('profiles').select('*').eq('id', id).maybeSingle()
   if (error || !data) return null
   return data as ProfileRow
+}
+
+export async function fetchStaffRole(userId: string): Promise<'admin' | 'super' | null> {
+  const row = await loadProfileRow(userId)
+  if (!row || row.status !== 'active') return null
+  if (row.role === 'admin' || row.role === 'super') return row.role
+  return null
 }
 
 async function loadProfile(id: string, email: string, signedIn: boolean) {

@@ -26,7 +26,11 @@ export function AdminLoginPage() {
         return
       }
       await signOut()
-      setError(remote.account ? 'This email is a client account.' : remote.error ?? 'Email or password was not accepted.')
+      setError(
+        remote.account
+          ? 'This email is a client account. Staff must sign in here with info@nevoluteinc.com (or another staff profile).'
+          : remote.error ?? 'Email or password was not accepted.',
+      )
       return
     }
     const signedIn = signInAdmin(email, password)

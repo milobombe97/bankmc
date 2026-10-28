@@ -2,6 +2,7 @@ import { loadAccount, loadClients } from '../auth/session'
 import { ensureCanTransact } from './adminAccounts'
 import { loadPostedBalances, savePostedBalances } from './balances'
 import { ledgerKey, type Transaction } from './banking'
+import { fetchStaffRole } from './remote'
 import { supabase } from '../lib/supabase'
 
 export type WithdrawalRequest = {
@@ -74,10 +75,25 @@ export async function submitReceiptRecord(input: {
   const { data: auth } = await supabase.auth.getUser()
   if (!auth.user) return { error: 'Sign in to upload a receipt.' }
 
+  const amount = Number(input.amount)
+  if (!Number.isFinite(amount) || amount <= 0) {
+    return { error: 'Enter a valid top-up amount before sending the receipt.' }
+  }
+
+  const { data: existing } = await supabase
+    .from('receipts')
+    .select('id')
+    .eq('user_id', auth.user.id)
+    .eq('transaction_id', input.transactionId)
+    .eq('status', 'pending')
+    .maybeSingle()
+
+  if (existing?.id) return { ok: true as const }
+
   const { error } = await supabase.from('receipts').insert({
     user_id: auth.user.id,
     account_code: input.accountCode,
-    amount: input.amount,
+    amount,
     currency: input.currency,
     storage_path: input.storagePath,
     file_name: input.fileName,
@@ -96,6 +112,13 @@ export async function reviewPayment(
   reason?: string,
 ) {
   if (!supabase) return { localOnly: true as const }
+
+  const { data: auth } = await supabase.auth.getUser()
+  if (!auth.user) return { error: 'Sign in with a staff account at Admin login.' }
+  const staffRole = await fetchStaffRole(auth.user.id)
+  if (!staffRole) {
+    return { error: 'Not authorized. Use Admin login with a staff email (for example info@nevoluteinc.com).' }
+  }
 
   const { data: receipt } = await supabase
     .from('receipts')

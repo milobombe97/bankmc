@@ -1,4 +1,5 @@
 import { loadAccount } from '../auth/session'
+import { supabaseEnabled } from '../lib/supabase'
 import { ensureCanTransact } from './adminAccounts'
 import { loadPostedBalances } from './balances'
 import { receiptFileKey, saveStoredFile } from './fileStore'
@@ -224,12 +225,29 @@ export function declinePending(clientId: string, id: string) {
   )
 }
 
-export function markReceiptSent(id: string, clientId?: string) {
+export async function markReceiptSent(id: string, clientId?: string) {
   const activeId = clientId || loadAccount()?.id || 'primary'
+  const tx = extraTransactions(activeId).find((item) => item.id === id)
   writeExtra(
     extraTransactions(activeId).map((item) => (item.id === id ? { ...item, receiptSent: true } : item)),
     activeId,
   )
+  if (!tx?.receiptPath) return
+  const account = bankAccounts.find((item) => item.id === tx.accountId)
+  if (supabaseEnabled()) {
+    const finance = await import('./finance')
+    const result = await finance.submitReceiptRecord({
+      accountCode: tx.accountId,
+      amount: Math.abs(tx.amount),
+      currency: account?.currency || 'GBP',
+      storagePath: tx.receiptPath,
+      fileName: tx.receiptName || 'Receipt',
+      transactionId: id,
+    })
+    if ('error' in result && result.error) {
+      console.error('Receipt submission error:', result.error)
+    }
+  }
 }
 
 export function dismissReceipt(id: string, clientId?: string) {

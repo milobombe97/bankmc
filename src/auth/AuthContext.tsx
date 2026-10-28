@@ -2,13 +2,15 @@ import { createContext, useContext, useEffect, useMemo, useState, type ReactNode
 import type { Session } from '@supabase/supabase-js'
 import { signOutAdmin } from './admins'
 import { loadAccount, saveAccount, type Account } from './session'
-import { restoreSupabaseSession, signInWithSupabase, signUpWithSupabase } from '../data/remote'
+import { fetchStaffRole, restoreSupabaseSession, signInWithSupabase, signUpWithSupabase } from '../data/remote'
 import { supabase, supabaseEnabled } from '../lib/supabase'
 
 type AuthResult = { error?: string; account?: Account }
+type StaffRole = 'admin' | 'super'
 
 type AuthContextValue = {
   session: Session | null
+  staffRole: StaffRole | null
   loading: boolean
   configured: boolean
   signUp: (account: Account) => Promise<AuthResult>
@@ -20,6 +22,7 @@ const AuthContext = createContext<AuthContextValue | null>(null)
 
 export function AuthProvider({ children }: { children: ReactNode }) {
   const [session, setSession] = useState<Session | null>(null)
+  const [staffRole, setStaffRole] = useState<StaffRole | null>(null)
   const [loading, setLoading] = useState(supabaseEnabled())
 
   useEffect(() => {
@@ -33,10 +36,24 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       const { data } = await supabase.auth.getSession()
       if (!active) return
       setSession(data.session)
+      if (data.session?.user) {
+        const role = await fetchStaffRole(data.session.user.id)
+        if (active) setStaffRole(role)
+      } else if (active) {
+        setStaffRole(null)
+      }
       setLoading(false)
     })()
     const { data: subscription } = supabase.auth.onAuthStateChange((_event, next) => {
       setSession(next)
+      void (async () => {
+        if (!next?.user) {
+          setStaffRole(null)
+          return
+        }
+        const role = await fetchStaffRole(next.user.id)
+        setStaffRole(role)
+      })()
     })
     return () => {
       active = false
@@ -47,6 +64,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const value = useMemo<AuthContextValue>(
     () => ({
       session,
+      staffRole,
       loading,
       configured: supabaseEnabled(),
       async signUp(account) {
@@ -72,9 +90,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         signOutAdmin()
         if (supabase) await supabase.auth.signOut()
         setSession(null)
+        setStaffRole(null)
       },
     }),
-    [loading, session],
+    [loading, session, staffRole],
   )
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>
