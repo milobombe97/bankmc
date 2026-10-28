@@ -9,6 +9,8 @@ import {
   receiptDecisionEmail,
   receiptSubmittedAdminEmail,
   receiptSubmittedEmail,
+  adminBalanceAdjustAdminEmail,
+  adminBalanceAdjustEmail,
   transferAdminEmail,
   transferReceiverEmail,
   transferSenderEmail,
@@ -144,6 +146,30 @@ export async function dispatchTransactionalEmail(payload: WebhookPayload) {
     const status = String(record.status ?? '')
     const txId = String(record.id ?? '')
     const amount = Number(record.amount)
+    const method = String(record.method ?? '')
+
+    if (method === 'Admin' && status === 'approved') {
+      const userId = String(record.user_id)
+      const profile = await getProfile(userId)
+      if (!profile?.email) return { handled: false, reason: 'missing profile' }
+      const currency = await getAccountCurrency(userId, String(record.account_id ?? 'personal'))
+      if (amount > 0) {
+        const msg = receiptDecisionEmail(true, amount, currency)
+        await sendEmail({ to: profile.email, subject: msg.subject, html: msg.html, ccAdmin: true })
+        const adminMsg = adminBalanceAdjustAdminEmail(profile.email, amount, currency, 'fund')
+        await sendAdminOnly(adminMsg)
+        return { handled: true, event: 'admin_fund' }
+      }
+      if (amount < 0) {
+        const msg = adminBalanceAdjustEmail(Math.abs(amount), currency, 'defund')
+        await sendEmail({ to: profile.email, subject: msg.subject, html: msg.html, ccAdmin: true })
+        const adminMsg = adminBalanceAdjustAdminEmail(profile.email, Math.abs(amount), currency, 'defund')
+        await sendAdminOnly(adminMsg)
+        return { handled: true, event: 'admin_defund' }
+      }
+      return { handled: false, reason: 'zero amount' }
+    }
+
     if (category !== 'Transfer' || status !== 'approved') return { handled: false, reason: 'not transfer' }
     if (txId.endsWith('-in')) return { handled: false, reason: 'incoming leg skipped' }
     if (amount >= 0) return { handled: false, reason: 'not outgoing leg' }

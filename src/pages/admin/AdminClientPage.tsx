@@ -17,6 +17,7 @@ import {
   loadClientTransactions,
 } from '../../data/banking'
 import { accountStatusOf, setProfileStatus, type AccountStatus } from '../../data/adminAccounts'
+import { supabaseEnabled } from '../../lib/supabase'
 
 export function AdminClientPage() {
   const { id = '' } = useParams()
@@ -73,6 +74,11 @@ function ClientEditor({ client }: { client: Account }) {
   const approved = client.kycStatus === 'verified'
   const status = accountStatusOf(client)
 
+  useEffect(() => {
+    if (!client.id || !supabaseEnabled()) return
+    void import('../../data/finance').then((finance) => finance.pullAccountBalances(client.id))
+  }, [client.id])
+
   async function changeStatus(next: AccountStatus) {
     if (!client.id) return
     setStatusError('')
@@ -114,7 +120,7 @@ function ClientEditor({ client }: { client: Account }) {
     setSaved(password ? 'Client details and password saved.' : 'Client details saved.')
   }
 
-  function moveMoney(direction: 'fund' | 'defund') {
+  async function moveMoney(direction: 'fund' | 'defund') {
     const value = Number(amount)
     const bank = bankAccounts.find((item) => item.id === accountId) ?? bankAccounts[0]
     if (!Number.isFinite(value) || value <= 0) {
@@ -126,12 +132,33 @@ function ClientEditor({ client }: { client: Account }) {
       setMoneyError('That amount is higher than the posted balance.')
       return
     }
-    adjustBalance(client.id || 'primary', {
-      accountId: bank.id,
-      name: direction === 'fund' ? 'Funds added by Nevolute Inc.' : 'Funds removed by Nevolute Inc.',
-      amount: signed,
-      category: direction === 'fund' ? 'Top up' : 'Withdrawal',
-    })
+    const label =
+      direction === 'fund' ? 'Funds added by Nevolute Inc.' : 'Funds removed by Nevolute Inc.'
+
+    if (supabaseEnabled() && client.id) {
+      const finance = await import('../../data/finance')
+      const result = await finance.adminAdjustBalance(client.id, bank.id, signed, label)
+      if (result.error) {
+        setMoneyError(result.error)
+        return
+      }
+      if (result.localOnly) {
+        adjustBalance(client.id, {
+          accountId: bank.id,
+          name: label,
+          amount: signed,
+          category: direction === 'fund' ? 'Top up' : 'Withdrawal',
+        })
+      }
+    } else {
+      adjustBalance(client.id || 'primary', {
+        accountId: bank.id,
+        name: label,
+        amount: signed,
+        category: direction === 'fund' ? 'Top up' : 'Withdrawal',
+      })
+    }
+
     setAmount('')
     setMoneyError('')
   }
@@ -278,8 +305,8 @@ function ClientEditor({ client }: { client: Account }) {
             <TextInput inputMode="decimal" placeholder="0.00" value={amount} onChange={(event) => { setAmount(event.target.value); setMoneyError('') }} />
           </Field>
           <div className="flex items-end gap-2">
-            <Button type="button" onClick={() => moveMoney('fund')}>Fund</Button>
-            <Button type="button" variant="secondary" onClick={() => moveMoney('defund')}>Defund</Button>
+            <Button type="button" onClick={() => void moveMoney('fund')}>Fund</Button>
+            <Button type="button" variant="secondary" onClick={() => void moveMoney('defund')}>Defund</Button>
           </div>
         </div>
       </section>

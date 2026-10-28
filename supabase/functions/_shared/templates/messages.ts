@@ -112,6 +112,43 @@ export function receiptDecisionEmail(approved: boolean, amount: number, currency
   }
 }
 
+export function adminBalanceAdjustEmail(amount: number, currency: string, direction: 'fund' | 'defund') {
+  const funded = direction === 'fund'
+  return {
+    subject: funded ? 'Balance updated' : 'Balance adjustment',
+    html: renderEmailLayout({
+      title: funded ? 'Funds added to your account' : 'Funds removed from your account',
+      bodyHtml: funded
+        ? `<p><strong>${formatMoney(amount, currency)}</strong> was added to your account by Nevolute Inc. ${statusPill('Credited', 'success')}</p>`
+        : `<p><strong>${formatMoney(amount, currency)}</strong> was removed from your account by Nevolute Inc. ${statusPill('Debited', 'warning')}</p>`,
+      ctaLabel: 'View balance',
+      ctaHref: DASHBOARD_URL,
+    }),
+  }
+}
+
+export function adminBalanceAdjustAdminEmail(
+  customerEmail: string,
+  amount: number,
+  currency: string,
+  direction: 'fund' | 'defund',
+) {
+  return {
+    subject: direction === 'fund' ? 'Admin: client balance funded' : 'Admin: client balance reduced',
+    html: renderEmailLayout({
+      title: direction === 'fund' ? 'Balance funded' : 'Balance reduced',
+      bodyHtml: `
+        <p>Staff adjusted a client balance.</p>
+        ${detailsTable(
+          detailRow('Customer', customerEmail) +
+            detailRow('Direction', direction === 'fund' ? 'Fund' : 'Defund') +
+            detailRow('Amount', formatMoney(amount, currency)),
+        )}
+      `,
+    }),
+  }
+}
+
 export function transferSenderEmail(amount: number, currency: string, counterparty: string, description: string) {
   return {
     subject: 'Transfer sent',

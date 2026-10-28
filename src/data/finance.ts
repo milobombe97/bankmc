@@ -105,6 +105,32 @@ export async function submitReceiptRecord(input: {
   return { ok: true as const }
 }
 
+export async function adminAdjustBalance(
+  userId: string,
+  accountCode: string,
+  delta: number,
+  label?: string,
+) {
+  if (!supabase) return { localOnly: true as const }
+
+  const { data: auth } = await supabase.auth.getUser()
+  if (!auth.user) return { error: 'Sign in with a staff account at Admin login.' }
+  const staffRole = await fetchStaffRole(auth.user.id)
+  if (!staffRole) return { error: 'Not authorized.' }
+
+  const { data, error } = await supabase.rpc('admin_adjust_balance', {
+    p_user_id: userId,
+    p_account_code: accountCode,
+    p_delta: delta,
+    p_label: label?.trim() || null,
+  })
+
+  if (error) return { error: error.message }
+  await pullAccountBalances(userId)
+  await import('./remote').then((m) => m.pullTransactionsForUser(userId))
+  return { balance: Number(data) }
+}
+
 export async function reviewPayment(
   userId: string,
   transactionId: string,
