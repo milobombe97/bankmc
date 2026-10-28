@@ -258,8 +258,21 @@ export async function markReceiptSent(id: string, clientId?: string) {
   }
 }
 
+export function loadDismissedReceiptIds(clientId: string): Set<string> {
+  try {
+    const raw = localStorage.getItem(`revolut-clone-receipt-dismissed:${clientId}`)
+    if (!raw) return new Set()
+    return new Set(JSON.parse(raw) as string[])
+  } catch {
+    return new Set()
+  }
+}
+
 export function dismissReceipt(id: string, clientId?: string) {
   const activeId = clientId || loadAccount()?.id || 'primary'
+  const dismissed = loadDismissedReceiptIds(activeId)
+  dismissed.add(id)
+  localStorage.setItem(`revolut-clone-receipt-dismissed:${activeId}`, JSON.stringify([...dismissed]))
   writeExtra(
     extraTransactions(activeId).map((item) => (item.id === id ? { ...item, receiptDismissed: true } : item)),
     activeId,

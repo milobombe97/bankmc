@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from 'react'
 import { useAccount } from '../auth/useAccount'
-import { attachReceipt, dismissReceipt, loadClientTransactions, markReceiptSent, paymentMethodName } from '../data/banking'
+import { attachReceipt, dismissReceipt, loadClientTransactions, loadDismissedReceiptIds, markReceiptSent, paymentMethodName } from '../data/banking'
 import { findReceiptFile } from '../data/fileStore'
 import type { StoredFile } from '../data/files'
 import { receiptPreview } from '../data/remote'
@@ -15,19 +15,19 @@ export function ReceiptDock() {
   const clientId = account?.id || ''
   const [tick, setTick] = useState(0)
   const [minimized, setMinimized] = useState(() => (clientId ? localStorage.getItem(dockKey(clientId)) === '1' : false))
-  const notices = useMemo(
-    () =>
-      clientId
-        ? loadClientTransactions(clientId).filter(
-            (item) =>
-              item.category === 'Top up' &&
-              (item.status === 'pending' ||
-                item.status === 'declined' ||
-                (item.status === 'approved' && !item.receiptDismissed)),
-          )
-        : [],
-    [clientId, tick],
-  )
+  const notices = useMemo(() => {
+    if (!clientId) return []
+    const dismissed = loadDismissedReceiptIds(clientId)
+    return loadClientTransactions(clientId).filter(
+      (item) =>
+        item.category === 'Top up' &&
+        !dismissed.has(item.id) &&
+        !item.receiptDismissed &&
+        (item.status === 'pending' ||
+          item.status === 'declined' ||
+          item.status === 'approved'),
+    )
+  }, [clientId, tick])
   const [files, setFiles] = useState<Record<string, StoredFile>>({})
 
   useEffect(() => {
@@ -127,7 +127,15 @@ export function ReceiptDock() {
             outcome={item.status === 'approved' || item.status === 'declined' ? item.status : 'pending'}
             onUpload={(file) => attachReceipt(item.id, file, clientId)}
             onSend={() => void markReceiptSent(item.id, clientId)}
-            onDismiss={() => dismissReceipt(item.id, clientId)}
+            onDismiss={() => {
+              dismissReceipt(item.id, clientId)
+              setFiles((current) => {
+                const next = { ...current }
+                delete next[item.id]
+                return next
+              })
+              setTick((value) => value + 1)
+            }}
           />
         ))}
       </div>

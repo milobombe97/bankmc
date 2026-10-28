@@ -1,6 +1,6 @@
 import { adoptRemoteAdmin, signOutAdmin, type AdminUser } from '../auth/admins'
 import { clearAccount, saveAccount, saveClients, type Account, type KycStatus } from '../auth/session'
-import { ledgerKey, type Transaction } from './banking'
+import { ledgerKey, loadDismissedReceiptIds, type Transaction } from './banking'
 import type { StoredFile } from './files'
 import { type KycFileKind, kycFileKey, saveStoredFile } from './fileStore'
 import { supabase } from '../lib/supabase'
@@ -580,7 +580,11 @@ export async function pullTransactionsForUser(userId: string) {
     .order('created_at', { ascending: false })
   if (error || !data) return
   const entries = sortTransactions((data as TransactionRow[]).map(transactionFromRow))
-  localStorage.setItem(ledgerKey(userId), JSON.stringify(entries))
+  const dismissed = loadDismissedReceiptIds(userId)
+  const merged = entries.map((entry) =>
+    dismissed.has(entry.id) ? { ...entry, receiptDismissed: true } : entry,
+  )
+  localStorage.setItem(ledgerKey(userId), JSON.stringify(merged))
   window.dispatchEvent(new Event('ledger-changed'))
 }
 
