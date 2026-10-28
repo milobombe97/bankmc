@@ -50,11 +50,11 @@ export function DashboardWithdraw() {
       method: label,
       country,
     })
-    if (remote.error) {
+    if ('error' in remote && remote.error) {
       setError(remote.error)
       return
     }
-    if (remote.localOnly) {
+    if ('localOnly' in remote && remote.localOnly) {
       recordPending({
         accountId: source.id,
         name: `Withdrawal · ${payee.trim()} · ${label}`,

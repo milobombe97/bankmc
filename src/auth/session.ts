@@ -46,6 +46,8 @@ export type ProfileSettings = {
   notifications: NotificationPrefs
 }
 
+export type AccountStatus = 'active' | 'suspended' | 'deleted'
+
 export type Account = {
   id?: string
   firstName: string
@@ -54,6 +56,7 @@ export type Account = {
   phone: string
   password: string
   signedIn: boolean
+  accountStatus?: AccountStatus
   suspended?: boolean
   role?: 'client' | 'admin' | 'super'
   kycStatus: KycStatus

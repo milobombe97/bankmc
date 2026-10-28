@@ -1,4 +1,5 @@
 import { loadAccount } from '../auth/session'
+import { ensureCanTransact } from './adminAccounts'
 import { loadPostedBalances } from './balances'
 import { receiptFileKey, saveStoredFile } from './fileStore'
 import type { StoredFile } from './files'
@@ -120,6 +121,9 @@ function extraTransactions(clientId?: string): Transaction[] {
 }
 
 function writeExtra(entries: Transaction[], clientId?: string) {
+  const self = loadAccount()
+  const activeId = clientId || self?.id
+  if (activeId === self?.id && ensureCanTransact(self)) return
   localStorage.setItem(ledgerKey(clientId), JSON.stringify(entries))
   window.dispatchEvent(new Event('ledger-changed'))
   void import('./remote').then((remote) => remote.pushTransactions(clientId, entries))

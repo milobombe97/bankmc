@@ -1,7 +1,9 @@
 import { useEffect, useState } from 'react'
 import { Link } from 'react-router-dom'
-import { bankAccounts, formatMoney } from '../../data/banking'
+import { loadClients } from '../../auth/session'
+import { bankAccounts, formatMoney, loadClientTransactions } from '../../data/banking'
 import { clientNameForId, listWithdrawals, reviewWithdrawal, type WithdrawalRequest } from '../../data/finance'
+import { supabase } from '../../lib/supabase'
 import { Button } from '../../components/Button'
 import { useAdminTick } from './useAdminTick'
 
@@ -13,7 +15,31 @@ export function AdminWithdrawalsPage() {
   void tick
 
   useEffect(() => {
-    listWithdrawals('pending').then(setRows)
+    listWithdrawals('pending').then((remote) => {
+      if (remote.length > 0 || supabase) {
+        setRows(remote)
+        return
+      }
+      const local: WithdrawalRequest[] = loadClients().flatMap((client) =>
+        loadClientTransactions(client.id || 'primary')
+          .filter((item) => item.category === 'Withdrawal' && item.status === 'pending')
+          .map((item) => ({
+            id: item.id,
+            user_id: client.id || 'primary',
+            account_code: item.accountId,
+            amount: Math.abs(item.amount),
+            currency: bankAccounts.find((a) => a.id === item.accountId)?.currency ?? 'GBP',
+            payee_name: item.name.replace(/^Withdrawal · /, '').split(' · ')[0] ?? item.name,
+            method: item.method ?? '',
+            country: '',
+            transaction_id: item.id,
+            status: 'pending',
+            rejection_reason: null,
+            created_at: item.date,
+          })),
+      )
+      setRows(local)
+    })
   }, [tick])
 
   async function decide(row: WithdrawalRequest, decision: 'approved' | 'rejected') {
@@ -24,6 +50,11 @@ export function AdminWithdrawalsPage() {
     if (result.error) {
       setError(result.error)
       return
+    }
+    if (result.localOnly) {
+      const { approvePending, declinePending } = await import('../../data/banking')
+      if (decision === 'approved') approvePending(row.user_id, row.transaction_id)
+      else declinePending(row.user_id, row.transaction_id)
     }
     setRows((current) => current.filter((item) => item.id !== row.id))
   }

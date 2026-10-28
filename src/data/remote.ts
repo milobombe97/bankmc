@@ -1,5 +1,5 @@
 import { adoptRemoteAdmin, type AdminUser } from '../auth/admins'
-import { saveAccount, saveClients, type Account, type KycStatus } from '../auth/session'
+import { clearAccount, saveAccount, saveClients, type Account, type KycStatus } from '../auth/session'
 import { ledgerKey, type Transaction } from './banking'
 import type { StoredFile } from './files'
 import { type KycFileKind, kycFileKey, saveStoredFile } from './fileStore'
@@ -58,6 +58,7 @@ function accountFromProfile(row: ProfileRow, email: string, signedIn: boolean): 
     phone: row.phone,
     password: '',
     signedIn,
+    accountStatus: row.status,
     suspended: row.status === 'suspended' || row.status === 'deleted',
     role: row.role === 'customer' ? 'client' : row.role,
     kycStatus: row.kyc_status,
@@ -82,7 +83,6 @@ function profilePatch(account: Account) {
     last_name: account.lastName,
     phone: account.phone,
     email: account.email,
-    status: account.suspended ? 'suspended' : 'active',
     kyc_status: account.kycStatus,
     kyc: storedKyc,
     settings: account.settings ?? null,
@@ -126,6 +126,10 @@ export async function signInWithSupabase(email: string, password: string): Promi
     await supabase.auth.signOut()
     return { error: 'This account has been closed.' }
   }
+  if (row.status === 'suspended' && row.role === 'customer') {
+    await supabase.auth.signOut()
+    return { error: 'This account has been suspended. Contact Nevolute Inc. support.' }
+  }
   const profile = accountFromProfile(row, data.user.email ?? email, true)
   if (profile.role === 'admin' || profile.role === 'super') {
     adoptRemoteAdmin({
@@ -140,8 +144,10 @@ export async function signInWithSupabase(email: string, password: string): Promi
     return { account: profile }
   }
   saveAccount(profile)
-  await pullTransactionsForUser(profile.id)
-  await import('./finance').then((finance) => finance.pullAccountBalances(profile.id))
+  if (profile.id) {
+    await pullTransactionsForUser(profile.id)
+    await import('./finance').then((finance) => finance.pullAccountBalances(profile.id))
+  }
   return { account: profile }
 }
 
@@ -181,13 +187,18 @@ export async function restoreSupabaseSession() {
       role: profile.role,
     })
     await pullClients()
-    await pullAllLedgers()
-    await import('./finance').then((finance) => finance.pullAllClientBalances())
+    return
+  }
+  if (profile.accountStatus === 'suspended' || profile.accountStatus === 'deleted') {
+    await supabase.auth.signOut()
+    clearAccount()
     return
   }
   saveAccount(profile)
-  await pullTransactionsForUser(profile.id)
-  await import('./finance').then((finance) => finance.pullAccountBalances(profile.id))
+  if (profile.id) {
+    await pullTransactionsForUser(profile.id)
+    await import('./finance').then((finance) => finance.pullAccountBalances(profile.id))
+  }
 }
 
 async function loadProfileRow(id: string) {
@@ -200,6 +211,7 @@ async function loadProfileRow(id: string) {
 async function loadProfile(id: string, email: string, signedIn: boolean) {
   const row = await loadProfileRow(id)
   if (!row || row.status === 'deleted') return null
+  if (row.status === 'suspended' && row.role === 'customer' && signedIn) return null
   return accountFromProfile(row, email, signedIn)
 }
 
@@ -290,7 +302,7 @@ export async function uploadReceipt(
     transactionId,
   })
 
-  if (result.error) {
+  if ('error' in result && result.error) {
     console.error('Receipt row insert error:', result.error)
     return undefined
   }
@@ -346,6 +358,10 @@ export async function storeKycDocuments(clientId: string, kyc: Account['kyc']) {
 }
 
 export async function submitKycSubmission(account: Account, kyc: NonNullable<Account['kyc']>) {
+  const { ensureCanTransact } = await import('./adminAccounts')
+  const blocked = ensureCanTransact(account)
+  if (blocked) return { error: blocked }
+
   const clientId = account.id || 'primary'
   const stored = await storeKycDocuments(clientId, kyc)
   if (!stored) return { error: 'Could not save identity documents.' }
@@ -534,4 +550,8 @@ async function pullClients() {
   saveClients(accounts)
   await pullAllLedgers()
   await import('./finance').then((finance) => finance.pullAllClientBalances())
+}
+
+export async function refreshClientsFromRemote() {
+  await pullClients()
 }

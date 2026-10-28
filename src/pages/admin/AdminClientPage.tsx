@@ -16,6 +16,7 @@ import {
   formatMoney,
   loadClientTransactions,
 } from '../../data/banking'
+import { accountStatusOf, setProfileStatus, type AccountStatus } from '../../data/adminAccounts'
 
 export function AdminClientPage() {
   const { id = '' } = useParams()
@@ -66,8 +67,23 @@ function ClientEditor({ client }: { client: Account }) {
   const [rejecting, setRejecting] = useState(false)
   const [reason, setReason] = useState('')
   const [reasonError, setReasonError] = useState('')
+  const [statusError, setStatusError] = useState('')
+  const [statusBusy, setStatusBusy] = useState(false)
   const pending = loadClientTransactions(client.id || 'primary').filter((item) => item.status === 'pending')
   const approved = client.kycStatus === 'verified'
+  const status = accountStatusOf(client)
+
+  async function changeStatus(next: AccountStatus) {
+    if (!client.id) return
+    setStatusError('')
+    setStatusBusy(true)
+    const result = await setProfileStatus(client.id, next)
+    setStatusBusy(false)
+    if (result.error) {
+      setStatusError(result.error)
+      return
+    }
+  }
 
   function saveDetails(event: FormEvent) {
     event.preventDefault()
@@ -127,14 +143,27 @@ function ClientEditor({ client }: { client: Account }) {
         <div>
           <h1 className="text-3xl font-medium tracking-[-0.04em]">{client.firstName} {client.lastName}</h1>
           <p className="mt-1 text-sm text-revolut-ink/55">{client.email}</p>
+          <p className="mt-1 text-sm capitalize text-revolut-ink/60">Account: {status}</p>
         </div>
-        <Button
-          variant="secondary"
-          onClick={() => updateClient({ ...client, suspended: !client.suspended })}
-        >
-          {client.suspended ? 'Unsuspend account' : 'Suspend account'}
-        </Button>
+        <div className="flex flex-wrap gap-2">
+          {status !== 'suspended' && status !== 'deleted' && (
+            <Button type="button" variant="secondary" disabled={statusBusy} onClick={() => void changeStatus('suspended')}>
+              Suspend
+            </Button>
+          )}
+          {status === 'suspended' && (
+            <Button type="button" disabled={statusBusy} onClick={() => void changeStatus('active')}>
+              Reactivate
+            </Button>
+          )}
+          {status !== 'deleted' && (
+            <Button type="button" variant="secondary" disabled={statusBusy} onClick={() => void changeStatus('deleted')}>
+              Soft delete
+            </Button>
+          )}
+        </div>
       </div>
+      {statusError ? <p className="text-sm text-red-600">{statusError}</p> : null}
 
       <section className="rounded-[1.5rem] bg-white p-5">
         <h2 className="text-lg font-medium">Details</h2>

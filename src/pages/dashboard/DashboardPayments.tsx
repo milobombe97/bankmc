@@ -45,11 +45,11 @@ export function DashboardPayments() {
     const label = `${methodLabel(country, method)} · ${country}`
     if (target.includes('@')) {
       const result = await transferToUser(source.id, target, value, `${target} · ${label}`)
-      if (result.error) {
+      if ('error' in result && result.error) {
         setError(result.error)
         return
       }
-      if (result.localOnly) {
+      if ('localOnly' in result && result.localOnly) {
         setError('Connect Supabase to send money to another Nevolute customer by email.')
         return
       }

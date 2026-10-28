@@ -106,6 +106,7 @@ export type FieldIconName =
   | 'banknote'
   | 'shield'
   | 'logout'
+  | 'withdraw'
 
 export function IconText({
   icon,
@@ -198,6 +199,13 @@ export function Glyph({ name, className = 'size-4' }: { name: FieldIconName; cla
         <>
           <path d="M8 4.5H5.2A1.2 1.2 0 0 0 4 5.7v8.6a1.2 1.2 0 0 0 1.2 1.2H8" />
           <path d="M10.5 10H16M13.5 7.2 16.3 10 13.5 12.8" />
+        </>
+      )}
+      {name === 'withdraw' && (
+        <>
+          <path d="M10 3.5v7.5" />
+          <path d="M7 6.5 10 3.5l3 3" />
+          <path d="M4.5 11.5h11v4.5h-11z" />
         </>
       )}
     </svg>

@@ -1,9 +1,12 @@
 import { useEffect, useMemo, useState } from 'react'
 import { Link } from 'react-router-dom'
 import { loadClients, type Account } from '../../auth/session'
+import { accountStatusOf } from '../../data/adminAccounts'
 
 function statusLabel(account: Account) {
-  if (account.suspended) return 'Suspended'
+  const status = accountStatusOf(account)
+  if (status === 'deleted') return 'Deleted'
+  if (status === 'suspended') return 'Suspended'
   if (account.kycStatus === 'verified') return 'Verified'
   if (account.kycStatus === 'in_review') return 'KYC in review'
   if (account.kycStatus === 'rejected') return 'KYC declined'

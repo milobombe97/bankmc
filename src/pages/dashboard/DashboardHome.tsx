@@ -20,6 +20,7 @@ import {
   recordTransfer,
   type Transaction,
 } from '../../data/banking'
+import { transferBetweenOwnAccounts, transferToUser } from '../../data/finance'
 
 export function DashboardHome() {
   const account = useAccount()
@@ -305,11 +306,12 @@ function QuickTransfer({ onDone }: { onDone: () => void }) {
     setSent('')
   }
 
-  function onSubmit(event: FormEvent) {
+  async function onSubmit(event: FormEvent) {
     event.preventDefault()
     const value = Math.round(Number(amount) * 100) / 100
     const external = !destination
-    if (external && recipient.trim().length < 2) {
+    const payee = recipient.trim()
+    if (external && payee.length < 2) {
       setError('Enter who you are paying.')
       setSent('')
       return
@@ -324,10 +326,22 @@ function QuickTransfer({ onDone }: { onDone: () => void }) {
       setSent('')
       return
     }
-    const name = external ? recipient.trim() : destination.name
+    const name = external ? payee : destination.name
     const methodText = `${methodLabel(country, method)} · ${country}`
     const activityName = external ? `${name} · ${methodText}` : `To ${name}`
-    if (external) {
+    if (external && payee.includes('@')) {
+      const result = await transferToUser(source.id, payee, value, activityName)
+      if ('error' in result && result.error) {
+        setError(result.error)
+        setSent('')
+        return
+      }
+      if ('localOnly' in result && result.localOnly) {
+        setError('Connect Supabase to send to another Nevolute customer by email.')
+        return
+      }
+      setSent(`${formatMoney(value, source.currency)} sent to ${payee}`)
+    } else if (external) {
       recordPending({
         accountId: source.id,
         name: activityName,
@@ -336,12 +350,20 @@ function QuickTransfer({ onDone }: { onDone: () => void }) {
       })
       setSent('')
     } else {
-      recordTransfer({
-        fromId: source.id,
-        toId: destination.id,
-        name: activityName,
-        amount: value,
-      })
+      const result = await transferBetweenOwnAccounts(source.id, destination.id, value, activityName)
+      if ('error' in result && result.error) {
+        setError(result.error)
+        setSent('')
+        return
+      }
+      if ('localOnly' in result && result.localOnly) {
+        recordTransfer({
+          fromId: source.id,
+          toId: destination.id,
+          name: activityName,
+          amount: value,
+        })
+      }
       setSent(`${formatMoney(value, source.currency)} to ${name}`)
     }
     setAmount('')

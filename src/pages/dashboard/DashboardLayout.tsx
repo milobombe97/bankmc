@@ -3,6 +3,7 @@ import { Link, NavLink, Navigate, Outlet, useLocation, useNavigate } from 'react
 import { useAuth } from '../../auth/AuthContext'
 import { ReceiptDock } from '../../components/ReceiptDock'
 import { useAccount } from '../../auth/useAccount'
+import { accountStatusOf } from '../../data/adminAccounts'
 import { loadTransactions } from '../../data/banking'
 import { buildNotifications, loadReadIds } from '../../data/notifications'
 
@@ -47,12 +48,31 @@ export function DashboardLayout() {
   }, [account, noticeTick])
 
   if (!account) return <Navigate to="/signin" replace />
-  if (account.suspended) {
+  if (accountStatusOf(account) === 'deleted') {
+    return (
+      <main className="mx-auto flex min-h-screen max-w-md flex-col justify-center px-6">
+        <h1 className="text-3xl font-medium tracking-[-0.04em]">Account closed</h1>
+        <p className="mt-3 text-sm text-revolut-ink/65">
+          This Nevolute Inc. account is no longer available. Contact support if you think this is a mistake.
+        </p>
+        <button
+          type="button"
+          className="mt-6 text-left text-sm font-medium underline-offset-4 hover:underline"
+          onClick={() => {
+            void signOut().then(() => navigate('/signin'))
+          }}
+        >
+          Log out
+        </button>
+      </main>
+    )
+  }
+  if (accountStatusOf(account) === 'suspended') {
     return (
       <main className="mx-auto flex min-h-screen max-w-md flex-col justify-center px-6">
         <h1 className="text-3xl font-medium tracking-[-0.04em]">Account suspended</h1>
         <p className="mt-3 text-sm text-revolut-ink/65">
-          Nevolute Inc. has suspended this account. You can sign in again after it is unsuspended.
+          Nevolute Inc. has suspended this account. You cannot move money until an admin reactivates it.
         </p>
         <button
           type="button"

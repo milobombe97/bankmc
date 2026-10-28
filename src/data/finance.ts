@@ -1,4 +1,5 @@
 import { loadAccount, loadClients } from '../auth/session'
+import { ensureCanTransact } from './adminAccounts'
 import { loadPostedBalances, savePostedBalances } from './balances'
 import { ledgerKey, type Transaction } from './banking'
 import { supabase } from '../lib/supabase'
@@ -54,6 +55,11 @@ export async function pullFinancialState(userId?: string) {
   await remote.pullTransactionsForUser(id)
 }
 
+function blockIfInactive() {
+  const message = ensureCanTransact(loadAccount())
+  return message ? { error: message } : null
+}
+
 export async function submitReceiptRecord(input: {
   accountCode: string
   amount: number
@@ -62,6 +68,8 @@ export async function submitReceiptRecord(input: {
   fileName: string
   transactionId: string
 }) {
+  const inactive = blockIfInactive()
+  if (inactive) return inactive
   if (!supabase) return { ok: true as const }
   const { data: auth } = await supabase.auth.getUser()
   if (!auth.user) return { error: 'Sign in to upload a receipt.' }
@@ -120,6 +128,8 @@ export async function reviewPayment(
 }
 
 export async function transferToUser(fromAccountCode: string, recipientEmail: string, amount: number, memo: string) {
+  const inactive = blockIfInactive()
+  if (inactive) return inactive
   if (!supabase) return { localOnly: true as const }
   const { data, error } = await supabase.rpc('transfer_between_users', {
     p_from_account_code: fromAccountCode,
@@ -134,6 +144,8 @@ export async function transferToUser(fromAccountCode: string, recipientEmail: st
 }
 
 export async function transferBetweenOwnAccounts(fromCode: string, toCode: string, amount: number, memo: string) {
+  const inactive = blockIfInactive()
+  if (inactive) return inactive
   if (!supabase) return { localOnly: true as const }
   const { data, error } = await supabase.rpc('transfer_between_own_accounts', {
     p_from_account_code: fromCode,
@@ -154,6 +166,8 @@ export async function requestWithdrawal(input: {
   method: string
   country: string
 }) {
+  const inactive = blockIfInactive()
+  if (inactive) return inactive
   if (!supabase) return { localOnly: true as const }
   const { data, error } = await supabase.rpc('request_withdrawal', {
     p_account_code: input.accountCode,

@@ -214,6 +214,65 @@ as $$
   );
 $$;
 
+create or replace function public.is_active_user()
+returns boolean
+language sql
+stable
+security definer
+set search_path = public
+as $$
+  select exists (
+    select 1 from public.profiles
+    where id = auth.uid() and status = 'active'
+  );
+$$;
+
+create or replace function public.assert_active_caller()
+returns void
+language plpgsql
+security definer
+set search_path = public
+as $$
+begin
+  if auth.uid() is null then
+    raise exception 'Not authenticated';
+  end if;
+  if public.is_staff() then
+    return;
+  end if;
+  if not public.is_active_user() then
+    raise exception 'Account is not active';
+  end if;
+end;
+$$;
+
+create or replace function public.admin_set_profile_status(p_user_id uuid, p_status text)
+returns void
+language plpgsql
+security definer
+set search_path = public
+as $$
+begin
+  if not public.is_staff() then
+    raise exception 'Not authorized';
+  end if;
+  if p_status not in ('active', 'suspended', 'deleted') then
+    raise exception 'Invalid status';
+  end if;
+
+  update public.profiles
+  set status = p_status, updated_at = now()
+  where id = p_user_id
+    and role = 'customer';
+
+  if not found then
+    raise exception 'Customer profile not found';
+  end if;
+end;
+$$;
+
+grant execute on function public.admin_set_profile_status(uuid, text) to authenticated;
+
 create or replace function public.protect_profile_role()
 returns trigger
 language plpgsql
@@ -312,7 +371,10 @@ create policy "read own or staff transactions" on public.transactions
 
 drop policy if exists "insert own or staff transactions" on public.transactions;
 create policy "insert own or staff transactions" on public.transactions
-  for insert with check (auth.uid() = user_id or public.is_staff());
+  for insert with check (
+    public.is_staff()
+    or (auth.uid() = user_id and public.is_active_user())
+  );
 
 drop policy if exists "update own or staff transactions" on public.transactions;
 create policy "update own or staff transactions" on public.transactions
@@ -419,6 +481,7 @@ create policy "insert own kyc submission" on public.kyc_submissions
   for insert with check (
     auth.uid() = user_id
     and status = 'pending'
+    and public.is_active_user()
   );
 
 drop policy if exists "staff review kyc submissions" on public.kyc_submissions;
@@ -720,9 +783,8 @@ declare
   v_in_id text;
   v_available numeric;
 begin
-  if v_user_id is null then
-    raise exception 'Not authenticated';
-  end if;
+  perform public.assert_active_caller();
+  v_user_id := auth.uid();
   if p_from_account_code = p_to_account_code then
     raise exception 'Choose two different accounts';
   end if;
@@ -772,9 +834,9 @@ declare
   v_in_id text;
   v_available numeric;
 begin
-  if v_from_id is null then
-    raise exception 'Not authenticated';
-  end if;
+  perform public.assert_active_caller();
+  v_from_id := auth.uid();
+
   if p_amount is null or p_amount <= 0 then
     raise exception 'Amount must be positive';
   end if;
@@ -874,9 +936,9 @@ declare
   v_tx_id text;
   v_request_id uuid;
 begin
-  if v_user_id is null then
-    raise exception 'Not authenticated';
-  end if;
+  perform public.assert_active_caller();
+  v_user_id := auth.uid();
+
   if p_amount is null or p_amount <= 0 then
     raise exception 'Amount must be positive';
   end if;
@@ -995,7 +1057,9 @@ create policy "read own or staff receipts table" on public.receipts
 
 drop policy if exists "insert own receipts table" on public.receipts;
 create policy "insert own receipts table" on public.receipts
-  for insert with check (auth.uid() = user_id and status = 'pending');
+  for insert with check (
+    auth.uid() = user_id and status = 'pending' and public.is_active_user()
+  );
 
 drop policy if exists "read own or staff withdrawals" on public.withdrawal_requests;
 create policy "read own or staff withdrawals" on public.withdrawal_requests
@@ -1003,7 +1067,9 @@ create policy "read own or staff withdrawals" on public.withdrawal_requests
 
 drop policy if exists "insert own withdrawal" on public.withdrawal_requests;
 create policy "insert own withdrawal" on public.withdrawal_requests
-  for insert with check (auth.uid() = user_id and status = 'pending');
+  for insert with check (
+    auth.uid() = user_id and status = 'pending' and public.is_active_user()
+  );
 
 -- ---------------------------------------------------------------------------
 -- Storage. Create the private buckets "receipts" and "kyc" first.
@@ -1021,6 +1087,7 @@ create policy "upload own receipts" on storage.objects
   for insert with check (
     bucket_id = 'receipts'
     and auth.uid()::text = (storage.foldername(name))[1]
+    and public.is_active_user()
   );
 
 drop policy if exists "update own receipts" on storage.objects;
@@ -1042,6 +1109,7 @@ create policy "upload own kyc" on storage.objects
   for insert with check (
     bucket_id = 'kyc'
     and auth.uid()::text = (storage.foldername(name))[1]
+    and public.is_active_user()
   );
 
 drop policy if exists "update own kyc" on storage.objects;
