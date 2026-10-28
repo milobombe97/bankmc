@@ -41,9 +41,11 @@ export function DashboardPayments() {
     setMethod((current) => keepMethod(country, current))
   }, [country])
 
+  const fieldContext = { country, accountCurrency: source.currency }
+
   useEffect(() => {
-    setMethodFields(emptyMethodFieldValues(method))
-  }, [method])
+    setMethodFields(emptyMethodFieldValues(method, fieldContext))
+  }, [method, country, from])
 
   async function onSubmit(event: FormEvent) {
     event.preventDefault()
@@ -57,7 +59,7 @@ export function DashboardPayments() {
       setError('Enter an amount greater than zero.')
       return
     }
-    const fieldError = validatePaymentMethodFields(method, methodFields)
+    const fieldError = validatePaymentMethodFields(method, methodFields, fieldContext)
     if (fieldError) {
       setError(fieldError)
       return
@@ -74,7 +76,7 @@ export function DashboardPayments() {
     }
     const label = paymentMethodLabel(country, method, methodLabel, coin)
     const methodLine = `${label} · ${country}`
-    const payeeDetails = formatPaymentMethodDetails(method, methodFields)
+    const payeeDetails = formatPaymentMethodDetails(method, methodFields, fieldContext)
     const activityName = `${target} · ${methodLine}`
 
     if (target.includes('@') && supabaseEnabled()) {
@@ -165,7 +167,7 @@ export function DashboardPayments() {
           {method === 'crypto' && (
             <CryptoCurrencySelect value={coin} onChange={setCoin} hint="Choose which cryptocurrency you are paying with." />
           )}
-          <PaymentMethodFields methodId={method} values={methodFields} onChange={setMethodFields} />
+          <PaymentMethodFields methodId={method} context={fieldContext} values={methodFields} onChange={setMethodFields} />
           <Field label={`Amount (${source.currency})`}>
             <IconText
               icon="banknote"

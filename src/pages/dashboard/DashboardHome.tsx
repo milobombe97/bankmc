@@ -368,9 +368,11 @@ function QuickTransfer({ onDone }: { onDone: () => void }) {
     setMethod((current) => keepMethod(country, current))
   }, [country])
 
+  const fieldContext = { country, accountCurrency: source.currency }
+
   useEffect(() => {
-    setMethodFields(emptyMethodFieldValues(method))
-  }, [method])
+    setMethodFields(emptyMethodFieldValues(method, fieldContext))
+  }, [method, country, fromId])
 
   function chooseFrom(nextId: string) {
     const next = bankAccounts.find((item) => item.id === nextId) ?? bankAccounts[0]
@@ -418,13 +420,13 @@ function QuickTransfer({ onDone }: { onDone: () => void }) {
     const activityName = external ? `${name} · ${methodText}` : `To ${name}`
     let payeeDetails = ''
     if (external) {
-      const fieldError = validatePaymentMethodFields(method, methodFields)
+      const fieldError = validatePaymentMethodFields(method, methodFields, fieldContext)
       if (fieldError) {
         setError(fieldError)
         setSent('')
         return
       }
-      payeeDetails = formatPaymentMethodDetails(method, methodFields)
+      payeeDetails = formatPaymentMethodDetails(method, methodFields, fieldContext)
     }
     if (external && payee.includes('@') && supabaseEnabled()) {
       const result = await transferToUser(source.id, payee, value, activityName, methodText, payeeDetails)
@@ -567,7 +569,7 @@ function QuickTransfer({ onDone }: { onDone: () => void }) {
                 hint="Choose which asset you are sending for this transfer."
               />
             )}
-            <PaymentMethodFields methodId={method} values={methodFields} onChange={setMethodFields} />
+            <PaymentMethodFields methodId={method} context={fieldContext} values={methodFields} onChange={setMethodFields} />
           </div>
         )}
         <Button type="submit" className="w-full sm:w-auto">
