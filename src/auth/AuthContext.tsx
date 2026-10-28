@@ -75,7 +75,19 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         return signUpWithSupabase(account)
       },
       async signIn(email, password) {
-        if (supabase) return signInWithSupabase(email, password)
+        if (supabase) {
+          const result = await signInWithSupabase(email, password)
+          if (!result.error) {
+            const { data } = await supabase.auth.getSession()
+            setSession(data.session)
+            if (result.account?.role === 'admin' || result.account?.role === 'super') {
+              setStaffRole(result.account.role)
+            } else {
+              setStaffRole(null)
+            }
+          }
+          return result
+        }
         const account = loadAccount()
         if (!account || account.email.toLowerCase() !== email.trim().toLowerCase() || account.password !== password) {
           return { error: 'Email or password does not match the account on this browser.' }

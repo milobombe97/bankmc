@@ -9,7 +9,9 @@ import { AccountMark } from '../../components/Flags'
 import { Field } from '../../components/Field'
 import { MethodChoices, methodLabel } from '../../components/MethodChoices'
 import { IconText } from '../../components/PasswordInput'
+import { CryptoCurrencySelect, paymentMethodLabel } from '../../components/CryptoCurrencySelect'
 import { SelectMenu } from '../../components/SelectMenu'
+import { type CryptoAssetId } from '../../data/cryptoAssets'
 
 export function DashboardWithdraw() {
   const profile = useAccount()
@@ -17,6 +19,7 @@ export function DashboardWithdraw() {
   const [from, setFrom] = useState('usd')
   const [payee, setPayee] = useState('')
   const [method, setMethod] = useState(() => keepMethod(country, 'bank'))
+  const [coin, setCoin] = useState<CryptoAssetId>('BTC')
   const [amount, setAmount] = useState('')
   const [error, setError] = useState('')
   const [submitted, setSubmitted] = useState(false)
@@ -42,7 +45,7 @@ export function DashboardWithdraw() {
       setError('That is more than the balance still available on this account.')
       return
     }
-    const label = `${methodLabel(country, method)} · ${country}`
+    const label = `${paymentMethodLabel(country, method, methodLabel, coin)} · ${country}`
     const remote = await requestWithdrawal({
       accountCode: source.id,
       amount: value,
@@ -101,6 +104,9 @@ export function DashboardWithdraw() {
             <CountrySelect value={country} onChange={setCountry} />
           </Field>
           <MethodChoices country={country} value={method} onChange={setMethod} basis="destination" />
+          {method === 'crypto' && (
+            <CryptoCurrencySelect value={coin} onChange={setCoin} hint="Choose which cryptocurrency you are withdrawing to." />
+          )}
           <Field label={`Amount (${source.currency})`}>
             <IconText
               icon="banknote"

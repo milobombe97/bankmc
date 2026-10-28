@@ -16,7 +16,12 @@ export function RequireAuth({ area, children }: { area: 'customer' | 'admin'; ch
 
   if (area === 'admin') {
     if (configured) {
-      if (!session || !staffRole) {
+      const staffOk =
+        staffRole === 'admin' ||
+        staffRole === 'super' ||
+        admin?.role === 'admin' ||
+        admin?.role === 'super'
+      if (!session || !staffOk) {
         return <Navigate to="/admin/login" replace />
       }
     } else if (!admin) {

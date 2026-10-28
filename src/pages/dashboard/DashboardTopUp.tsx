@@ -8,7 +8,8 @@ import { MethodChoices } from '../../components/MethodChoices'
 import { Field } from '../../components/Field'
 import { IconText } from '../../components/PasswordInput'
 import { SelectMenu } from '../../components/SelectMenu'
-import { cryptoAssets, cryptoMark, type CryptoAssetId } from '../../data/cryptoAssets'
+import { CryptoCurrencySelect, paymentMethodLabel } from '../../components/CryptoCurrencySelect'
+import { type CryptoAssetId } from '../../data/cryptoAssets'
 
 const maxAmount = 10_000
 
@@ -24,7 +25,6 @@ export function DashboardTopUp() {
 
   const account = bankAccounts.find((item) => item.id === accountId) ?? bankAccounts[0]
   const methods = methodsForCountry(country)
-  const selected = methods.find((item) => item.id === method) ?? methods[0]
 
   useEffect(() => {
     setMethod((current) => keepMethod(country, current))
@@ -41,10 +41,12 @@ export function DashboardTopUp() {
       setError(`Top-ups are limited to ${formatMoney(maxAmount, account.currency)}.`)
       return
     }
-    const methodLabel =
-      method === 'crypto' ? `Crypto · ${coin}` : method === 'bank' ? 'Bank transfer' : selected.label
+    const methodLabelText = paymentMethodLabel(country, method, (_country, m) => {
+      const picked = methods.find((item) => item.id === m) ?? methods[0]
+      return m === 'bank' ? 'Bank transfer' : picked.label
+    }, coin)
     const from = payer.trim()
-    const label = from && (method === 'zelle' || method === 'chime' || method === 'etransfer' || method === 'interac') ? `${methodLabel} · ${from}` : methodLabel
+    const label = from && (method === 'zelle' || method === 'chime' || method === 'etransfer' || method === 'interac') ? `${methodLabelText} · ${from}` : methodLabelText
     recordPending({
       accountId: account.id,
       name: `Top up · ${label}`,
@@ -82,20 +84,11 @@ export function DashboardTopUp() {
           <MethodChoices country={country} value={method} onChange={setMethod} />
 
           {method === 'crypto' && (
-            <Field label="Cryptocurrency" hint="Choose the asset you sent. The credited amount stays in your account currency.">
-              <SelectMenu
-                value={coin}
-                onChange={(value) => setCoin(value as CryptoAssetId)}
-                searchable
-                placeholder="Select coin"
-                options={cryptoAssets.map((item) => ({
-                  value: item.value,
-                  label: item.label,
-                  hint: item.hint,
-                  icon: <CoinMark symbol={item.value} />,
-                }))}
-              />
-            </Field>
+            <CryptoCurrencySelect
+              value={coin}
+              onChange={setCoin}
+              hint="Choose the asset you sent. The credited amount stays in your account currency."
+            />
           )}
 
           {(method === 'zelle' || method === 'chime' || method === 'etransfer' || method === 'interac') && (
@@ -148,15 +141,5 @@ export function DashboardTopUp() {
         </ul>
       </aside>
     </main>
-  )
-}
-
-function CoinMark({ symbol }: { symbol: CryptoAssetId }) {
-  return (
-    <span
-      className={`grid size-6 shrink-0 place-items-center rounded-full text-[10px] font-semibold text-white ${cryptoMark(symbol)}`}
-    >
-      {symbol.slice(0, 1)}
-    </span>
   )
 }

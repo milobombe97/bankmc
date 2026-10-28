@@ -10,7 +10,9 @@ import { AccountMark } from '../../components/Flags'
 import { Field } from '../../components/Field'
 import { MethodChoices, methodLabel } from '../../components/MethodChoices'
 import { IconText } from '../../components/PasswordInput'
+import { CryptoCurrencySelect, paymentMethodLabel } from '../../components/CryptoCurrencySelect'
 import { SelectMenu } from '../../components/SelectMenu'
+import { type CryptoAssetId } from '../../data/cryptoAssets'
 
 export function DashboardPayments() {
   const profile = useAccount()
@@ -18,6 +20,7 @@ export function DashboardPayments() {
   const [from, setFrom] = useState('usd')
   const [recipient, setRecipient] = useState('')
   const [method, setMethod] = useState(() => keepMethod(country, 'fps'))
+  const [coin, setCoin] = useState<CryptoAssetId>('BTC')
   const [amount, setAmount] = useState('')
   const [error, setError] = useState('')
   const [submitted, setSubmitted] = useState('')
@@ -55,9 +58,9 @@ export function DashboardPayments() {
       setError('That is more than the balance still available on this account.')
       return
     }
-    const label = `${methodLabel(country, method)} · ${country}`
+    const label = paymentMethodLabel(country, method, methodLabel, coin)
     if (target.includes('@')) {
-      const result = await transferToUser(source.id, target, value, `${target} · ${label}`)
+      const result = await transferToUser(source.id, target, value, `${target} · ${label} · ${country}`)
       if ('error' in result && result.error) {
         setError(result.error)
         return
@@ -112,6 +115,9 @@ export function DashboardPayments() {
             <CountrySelect value={country} onChange={setCountry} />
           </Field>
           <MethodChoices country={country} value={method} onChange={setMethod} basis="destination" />
+          {method === 'crypto' && (
+            <CryptoCurrencySelect value={coin} onChange={setCoin} hint="Choose which cryptocurrency you are paying with." />
+          )}
           <Field label={`Amount (${source.currency})`}>
             <IconText
               icon="banknote"

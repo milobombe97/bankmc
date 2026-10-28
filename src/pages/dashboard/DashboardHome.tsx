@@ -21,6 +21,8 @@ import {
   type Currency,
   type Transaction,
 } from '../../data/banking'
+import { CryptoCurrencySelect, paymentMethodLabel } from '../../components/CryptoCurrencySelect'
+import { type CryptoAssetId } from '../../data/cryptoAssets'
 import { transferBetweenOwnAccounts, assertTransferAmount, pullFinancialState, transferToUser } from '../../data/finance'
 import { supabaseEnabled } from '../../lib/supabase'
 
@@ -341,6 +343,7 @@ function QuickTransfer({ onDone }: { onDone: () => void }) {
   const [toId, setToId] = useState('external')
   const [recipient, setRecipient] = useState('')
   const [method, setMethod] = useState(() => keepMethod(country, 'fps'))
+  const [coin, setCoin] = useState<CryptoAssetId>('BTC')
   const [amount, setAmount] = useState('')
   const [error, setError] = useState('')
   const [sent, setSent] = useState('')
@@ -402,7 +405,7 @@ function QuickTransfer({ onDone }: { onDone: () => void }) {
       }
     }
     const name = external ? payee : destination.name
-    const methodText = `${methodLabel(country, method)} · ${country}`
+    const methodText = `${paymentMethodLabel(country, method, methodLabel, coin)} · ${country}`
     const activityName = external ? `${name} · ${methodText}` : `To ${name}`
     if (external && payee.includes('@')) {
       const result = await transferToUser(source.id, payee, value, activityName)
@@ -460,60 +463,59 @@ function QuickTransfer({ onDone }: { onDone: () => void }) {
           Full payment
         </Link>
       </div>
-      <form className="mt-5 grid gap-3 lg:grid-cols-[1fr_1fr_9rem_auto] lg:items-end" onSubmit={onSubmit}>
-        <Field label="From">
-          <SelectMenu
-            value={source.id}
-            onChange={chooseFrom}
-            options={bankAccounts.map((item) => ({
-              value: item.id,
-              label: item.name,
-              hint: formatMoney(accountBalance(item), item.currency),
-              icon: <AccountMark id={item.id} currency={item.currency} />,
-            }))}
-          />
-        </Field>
-        <Field label="To">
-          <SelectMenu
-            value={destination?.id ?? 'external'}
-            onChange={(next) => {
-              setToId(next)
-              setError('')
-              setSent('')
-            }}
-            options={[
-              ...ownAccounts.map((item) => ({
+      <form className="mt-5 space-y-3" onSubmit={onSubmit}>
+        <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3 lg:items-end">
+          <Field label="From">
+            <SelectMenu
+              value={source.id}
+              onChange={chooseFrom}
+              options={bankAccounts.map((item) => ({
                 value: item.id,
                 label: item.name,
+                hint: formatMoney(accountBalance(item), item.currency),
                 icon: <AccountMark id={item.id} currency={item.currency} />,
-              })),
-              { value: 'external', label: 'Someone else' },
-            ]}
-          />
-        </Field>
-        <Field label={`Amount (${source.currency})`}>
-          <IconText
-            icon="banknote"
-            inputMode="decimal"
-            value={amount}
-            placeholder="0.00"
-            onChange={(event) => {
-              setAmount(event.target.value)
-              setError('')
-            }}
-          />
-        </Field>
-        <Button type="submit" className="w-full lg:w-auto">
-          Transfer
-        </Button>
+              }))}
+            />
+          </Field>
+          <Field label="To">
+            <SelectMenu
+              value={destination?.id ?? 'external'}
+              onChange={(next) => {
+                setToId(next)
+                setError('')
+                setSent('')
+              }}
+              options={[
+                ...ownAccounts.map((item) => ({
+                  value: item.id,
+                  label: item.name,
+                  icon: <AccountMark id={item.id} currency={item.currency} />,
+                })),
+                { value: 'external', label: 'Someone else' },
+              ]}
+            />
+          </Field>
+          <Field label={`Amount (${source.currency})`}>
+            <IconText
+              icon="banknote"
+              inputMode="decimal"
+              value={amount}
+              placeholder="0.00"
+              onChange={(event) => {
+                setAmount(event.target.value)
+                setError('')
+              }}
+            />
+          </Field>
+        </div>
         {destination === null && (
-          <div className="space-y-3 lg:col-span-4">
+          <div className="space-y-3">
             <div className="grid gap-3 sm:grid-cols-2">
               <Field label="Name">
                 <IconText
                   icon="user"
                   value={recipient}
-                  placeholder="Name or @username"
+                  placeholder="Name or Nevolute email"
                   onChange={(event) => setRecipient(event.target.value)}
                 />
               </Field>
@@ -522,8 +524,18 @@ function QuickTransfer({ onDone }: { onDone: () => void }) {
               </Field>
             </div>
             <MethodChoices country={country} value={method} onChange={setMethod} basis="destination" />
+            {method === 'crypto' && (
+              <CryptoCurrencySelect
+                value={coin}
+                onChange={setCoin}
+                hint="Choose which asset you are sending for this transfer."
+              />
+            )}
           </div>
         )}
+        <Button type="submit" className="w-full sm:w-auto">
+          Transfer
+        </Button>
       </form>
       {error && <p className="mt-3 text-sm text-red-600">{error}</p>}
       {sent && (
