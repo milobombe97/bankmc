@@ -24,7 +24,7 @@ Deno.serve(async (req) => {
     })
   }
 
-  const secret = Deno.env.get('SUPABASE_WEBHOOK_SECRET')
+  const secret = Deno.env.get('EMAIL_WEBHOOK_SECRET') ?? Deno.env.get('SUPABASE_WEBHOOK_SECRET')
   const incoming = req.headers.get('x-webhook-secret')
   if (!secret || incoming !== secret) {
     console.error('[transactional-email] invalid webhook secret')

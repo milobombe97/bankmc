@@ -32,7 +32,7 @@ Set secrets (never put these in the frontend or `.env` committed to git):
 supabase secrets set RESEND_API_KEY=re_xxxxxxxx
 supabase secrets set SUPABASE_SERVICE_ROLE_KEY=your_service_role_key
 supabase secrets set SUPABASE_URL=https://YOUR_PROJECT_REF.supabase.co
-supabase secrets set SUPABASE_WEBHOOK_SECRET=choose_a_long_random_string
+supabase secrets set EMAIL_WEBHOOK_SECRET=choose_a_long_random_string
 ```
 
 | Secret | Purpose |
@@ -40,7 +40,7 @@ supabase secrets set SUPABASE_WEBHOOK_SECRET=choose_a_long_random_string
 | `RESEND_API_KEY` | Resend API (Edge Function only) |
 | `SUPABASE_SERVICE_ROLE_KEY` | Look up profile emails / related rows |
 | `SUPABASE_URL` | Project URL for admin client |
-| `SUPABASE_WEBHOOK_SECRET` | Validates Database Webhook requests (`x-webhook-secret` header) |
+| `EMAIL_WEBHOOK_SECRET` | Validates Database Webhook requests (`x-webhook-secret` header). Do not use the `SUPABASE_` prefix — CLI rejects it. |
 
 `SUPABASE_URL` and service role are also available in the Edge runtime in hosted projects; setting them explicitly keeps local `supabase functions serve` working.
 
@@ -72,7 +72,7 @@ In **Supabase Dashboard → Database → Webhooks**, create one webhook per tabl
 |-------|--------|
 | Method | `POST` |
 | URL | `https://YOUR_PROJECT_REF.supabase.co/functions/v1/transactional-email` |
-| Headers | `x-webhook-secret: <same as SUPABASE_WEBHOOK_SECRET>` |
+| Headers | `x-webhook-secret: <same as EMAIL_WEBHOOK_SECRET>` |
 | Content type | `application/json` |
 
 ### Webhook matrix
