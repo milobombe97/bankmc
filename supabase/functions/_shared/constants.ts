@@ -1,0 +1,5 @@
+export const ADMIN_EMAIL = 'info@nevoluteinc.com'
+export const FROM_EMAIL = 'Nevolute Inc. <info@nevoluteinc.com>'
+export const APP_NAME = 'Nevolute Inc.'
+export const SUPPORT_EMAIL = 'info@nevoluteinc.com'
+export const DASHBOARD_URL = 'https://nevoluteinc.com/dashboard'
