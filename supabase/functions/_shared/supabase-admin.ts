@@ -60,7 +60,19 @@ export async function getAccountCurrency(userId: string, accountCode: string) {
     .eq('code', accountCode)
     .maybeSingle()
   if (error) throw error
-  return (data?.currency as string | undefined) ?? 'GBP'
+  return (data?.currency as string | undefined) ?? 'USD'
+}
+
+export async function getAccountLabel(userId: string, accountCode: string) {
+  const { data, error } = await adminClient()
+    .from('accounts')
+    .select('name, currency')
+    .eq('user_id', userId)
+    .eq('code', accountCode)
+    .maybeSingle()
+  if (error) throw error
+  if (!data) return accountCode
+  return `${data.name as string} (${data.currency as string})`
 }
 
 export async function getTransaction(id: string) {

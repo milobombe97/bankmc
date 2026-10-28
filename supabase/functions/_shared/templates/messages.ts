@@ -1,6 +1,228 @@
-import { DASHBOARD_URL } from '../constants.ts'
-import { formatMoney, escapeHtml } from '../format.ts'
+import { APP_NAME, DASHBOARD_URL } from '../constants.ts'
+import { formatMoney, escapeHtml, formatTransferTimestamp, maskEmail } from '../format.ts'
 import { detailsTable, detailRow, renderEmailLayout, statusPill } from './layout.ts'
+
+export type TransferPartyInfo = {
+  displayName: string
+  email: string
+  accountLabel: string
+  /** When true, email is shown in full (admin notices). */
+  showFullEmail?: boolean
+}
+
+export type TransferNoticeContext = {
+  referenceId: string
+  amount: number
+  currency: string
+  description: string
+  status: 'pending' | 'completed'
+  initiatedAt: string
+  sender: TransferPartyInfo
+  receiver: TransferPartyInfo
+}
+
+function partyContact(party: TransferPartyInfo) {
+  return party.showFullEmail ? party.email : maskEmail(party.email)
+}
+
+function transferComplianceFooter(referenceId: string) {
+  return `<p style="margin:0 0 12px;font-size:12px;line-height:1.55;color:#64748b;">
+    <strong>Security notice:</strong> ${escapeHtml(APP_NAME)} will never ask for your password, PIN, or full card number by email.
+    If you did not authorize this transfer, contact us immediately and quote reference <strong>${escapeHtml(referenceId)}</strong>.
+    Posted balances may update only after verification where applicable. Timestamps are shown in UTC.
+  </p>`
+}
+
+function transferDetailsBlock(ctx: TransferNoticeContext, viewer: 'sender' | 'receiver' | 'admin') {
+  const statusLabel = ctx.status === 'pending' ? 'Pending verification' : 'Completed'
+  const statusTone = ctx.status === 'pending' ? 'warning' : 'success'
+  const senderContact = partyContact({
+    ...ctx.sender,
+    showFullEmail: viewer === 'admin' || viewer === 'sender',
+  })
+  const receiverContact = partyContact({
+    ...ctx.receiver,
+    showFullEmail: viewer === 'admin' || viewer === 'receiver',
+  })
+
+  return `
+    <p>${statusPill(statusLabel, statusTone)}</p>
+    ${detailsTable(
+      detailRow('Reference', ctx.referenceId) +
+        detailRow('Date and time', formatTransferTimestamp(ctx.initiatedAt)) +
+        detailRow('Amount', formatMoney(Math.abs(ctx.amount), ctx.currency)) +
+        detailRow('Currency', ctx.currency) +
+        detailRow('Description', ctx.description) +
+        detailRow('Sender name', ctx.sender.displayName) +
+        detailRow('Sender account', ctx.sender.accountLabel) +
+        detailRow('Sender contact', senderContact) +
+        detailRow('Recipient name', ctx.receiver.displayName) +
+        detailRow('Recipient account', ctx.receiver.accountLabel) +
+        detailRow('Recipient contact', receiverContact),
+    )}
+  `
+}
+
+export function transferSenderNoticeEmail(ctx: TransferNoticeContext) {
+  const pending = ctx.status === 'pending'
+  return {
+    subject: pending ? 'Transfer submitted for review' : 'Transfer sent — confirmation',
+    html: renderEmailLayout({
+      preheader: pending
+        ? `Transfer to ${ctx.receiver.displayName} is pending verification.`
+        : `You sent ${formatMoney(Math.abs(ctx.amount), ctx.currency)} to ${ctx.receiver.displayName}.`,
+      title: pending ? 'Outgoing transfer received' : 'Transfer sent',
+      bodyHtml: `
+        <p>Hello ${escapeHtml(ctx.sender.displayName)},</p>
+        <p>${
+          pending
+            ? `We received your transfer request of <strong>${formatMoney(Math.abs(ctx.amount), ctx.currency)}</strong> to <strong>${escapeHtml(ctx.receiver.displayName)}</strong>. Funds will move after Nevolute Inc. completes verification.`
+            : `Your transfer of <strong>${formatMoney(Math.abs(ctx.amount), ctx.currency)}</strong> to <strong>${escapeHtml(ctx.receiver.displayName)}</strong> has been completed.`
+        }</p>
+        ${transferDetailsBlock(ctx, 'sender')}
+      `,
+      footerHtml: transferComplianceFooter(ctx.referenceId),
+      ctaLabel: 'View activity',
+      ctaHref: DASHBOARD_URL,
+    }),
+  }
+}
+
+export function transferReceiverNoticeEmail(ctx: TransferNoticeContext) {
+  const pending = ctx.status === 'pending'
+  return {
+    subject: pending ? 'Incoming transfer pending' : 'Money received — confirmation',
+    html: renderEmailLayout({
+      preheader: pending
+        ? `${ctx.sender.displayName} sent you funds pending verification.`
+        : `You received ${formatMoney(ctx.amount, ctx.currency)} from ${ctx.sender.displayName}.`,
+      title: pending ? 'Incoming transfer pending' : 'Incoming transfer',
+      bodyHtml: `
+        <p>Hello ${escapeHtml(ctx.receiver.displayName)},</p>
+        <p>${
+          pending
+            ? `<strong>${escapeHtml(ctx.sender.displayName)}</strong> initiated a transfer of <strong>${formatMoney(Math.abs(ctx.amount), ctx.currency)}</strong> to your account. It is <strong>pending verification</strong> and will appear on your balance once approved.`
+            : `You received <strong>${formatMoney(ctx.amount, ctx.currency)}</strong> from <strong>${escapeHtml(ctx.sender.displayName)}</strong>.`
+        }</p>
+        ${transferDetailsBlock(ctx, 'receiver')}
+      `,
+      footerHtml: transferComplianceFooter(ctx.referenceId),
+      ctaLabel: 'View balance',
+      ctaHref: DASHBOARD_URL,
+    }),
+  }
+}
+
+export function transferAdminNoticeEmail(ctx: TransferNoticeContext) {
+  const pending = ctx.status === 'pending'
+  return {
+    subject: pending ? 'Admin: transfer pending verification' : 'Admin: transfer completed',
+    html: renderEmailLayout({
+      title: pending ? 'Transfer awaiting approval' : 'Transfer posted',
+      bodyHtml: `
+        <p>A customer transfer was recorded on Nevolute Inc.</p>
+        ${transferDetailsBlock(
+          {
+            ...ctx,
+            sender: { ...ctx.sender, showFullEmail: true },
+            receiver: { ...ctx.receiver, showFullEmail: true },
+          },
+          'admin',
+        )}
+      `,
+      footerHtml: transferComplianceFooter(ctx.referenceId),
+    }),
+  }
+}
+
+export function internalTransferNoticeEmail(
+  ctx: Omit<TransferNoticeContext, 'receiver'> & { receiverAccountLabel: string },
+) {
+  return {
+    subject: 'Transfer between your accounts',
+    html: renderEmailLayout({
+      title: 'Internal transfer completed',
+      bodyHtml: `
+        <p>Hello ${escapeHtml(ctx.sender.displayName)},</p>
+        <p>You moved <strong>${formatMoney(Math.abs(ctx.amount), ctx.currency)}</strong> between your Nevolute Inc. accounts.</p>
+        ${detailsTable(
+          detailRow('Reference', ctx.referenceId) +
+            detailRow('Date and time', formatTransferTimestamp(ctx.initiatedAt)) +
+            detailRow('Amount', formatMoney(Math.abs(ctx.amount), ctx.currency)) +
+            detailRow('From account', ctx.sender.accountLabel) +
+            detailRow('To account', ctx.receiverAccountLabel) +
+            detailRow('Description', ctx.description),
+        )}
+        <p>${statusPill('Completed', 'success')}</p>
+      `,
+      footerHtml: transferComplianceFooter(ctx.referenceId),
+      ctaLabel: 'View accounts',
+      ctaHref: DASHBOARD_URL,
+    }),
+  }
+}
+
+/** @deprecated Use transferSenderNoticeEmail */
+export function transferSenderEmail(amount: number, currency: string, counterparty: string, description: string) {
+  return transferSenderNoticeEmail({
+    referenceId: '—',
+    amount,
+    currency,
+    description,
+    status: 'completed',
+    initiatedAt: new Date().toISOString(),
+    sender: { displayName: 'You', email: '', accountLabel: '—' },
+    receiver: { displayName: counterparty, email: counterparty, accountLabel: '—' },
+  })
+}
+
+/** @deprecated Use transferReceiverNoticeEmail */
+export function transferReceiverEmail(amount: number, currency: string, sender: string, description: string) {
+  return transferReceiverNoticeEmail({
+    referenceId: '—',
+    amount,
+    currency,
+    description,
+    status: 'completed',
+    initiatedAt: new Date().toISOString(),
+    sender: { displayName: sender, email: sender, accountLabel: '—' },
+    receiver: { displayName: 'You', email: '', accountLabel: '—' },
+  })
+}
+
+/** @deprecated Use transferAdminNoticeEmail */
+export function transferAdminEmail(
+  senderEmail: string,
+  receiverEmail: string,
+  amount: number,
+  currency: string,
+  description: string,
+) {
+  return transferAdminNoticeEmail({
+    referenceId: '—',
+    amount,
+    currency,
+    description,
+    status: 'completed',
+    initiatedAt: new Date().toISOString(),
+    sender: { displayName: senderEmail, email: senderEmail, accountLabel: '—', showFullEmail: true },
+    receiver: { displayName: receiverEmail, email: receiverEmail, accountLabel: '—', showFullEmail: true },
+  })
+}
+
+/** @deprecated Use internalTransferNoticeEmail */
+export function internalTransferEmail(amount: number, currency: string, description: string) {
+  return internalTransferNoticeEmail({
+    referenceId: '—',
+    amount: -amount,
+    currency,
+    description,
+    status: 'completed',
+    initiatedAt: new Date().toISOString(),
+    sender: { displayName: 'You', email: '', accountLabel: '—' },
+    receiverAccountLabel: '—',
+  })
+}
 
 export function welcomeEmail(name: string) {
   const safeName = name.trim() || 'there'
@@ -145,77 +367,6 @@ export function adminBalanceAdjustAdminEmail(
             detailRow('Amount', formatMoney(amount, currency)),
         )}
       `,
-    }),
-  }
-}
-
-export function transferSenderEmail(amount: number, currency: string, counterparty: string, description: string) {
-  return {
-    subject: 'Transfer sent',
-    html: renderEmailLayout({
-      title: 'Transfer completed',
-      bodyHtml: `
-        <p>You sent <strong>${formatMoney(Math.abs(amount), currency)}</strong> to <strong>${escapeHtml(counterparty)}</strong>.</p>
-        ${detailsTable(detailRow('Description', description))}
-        <p>${statusPill('Completed', 'success')}</p>
-      `,
-      ctaLabel: 'View activity',
-      ctaHref: DASHBOARD_URL,
-    }),
-  }
-}
-
-export function transferReceiverEmail(amount: number, currency: string, sender: string, description: string) {
-  return {
-    subject: 'Money received',
-    html: renderEmailLayout({
-      title: 'Incoming transfer',
-      bodyHtml: `
-        <p>You received <strong>${formatMoney(amount, currency)}</strong> from <strong>${escapeHtml(sender)}</strong>.</p>
-        ${detailsTable(detailRow('Description', description))}
-        <p>${statusPill('Completed', 'success')}</p>
-      `,
-      ctaLabel: 'View balance',
-      ctaHref: DASHBOARD_URL,
-    }),
-  }
-}
-
-export function transferAdminEmail(
-  senderEmail: string,
-  receiverEmail: string,
-  amount: number,
-  currency: string,
-  description: string,
-) {
-  return {
-    subject: 'Transfer completed (customer)',
-    html: renderEmailLayout({
-      title: 'Transfer notification',
-      bodyHtml: `
-        <p>A transfer was posted on Nevolute Inc.</p>
-        ${detailsTable(
-          detailRow('From', senderEmail) +
-            detailRow('To', receiverEmail) +
-            detailRow('Amount', formatMoney(Math.abs(amount), currency)) +
-            detailRow('Description', description),
-        )}
-      `,
-    }),
-  }
-}
-
-export function internalTransferEmail(amount: number, currency: string, description: string) {
-  return {
-    subject: 'Transfer between your accounts',
-    html: renderEmailLayout({
-      title: 'Internal transfer completed',
-      bodyHtml: `
-        <p>You moved <strong>${formatMoney(amount, currency)}</strong> between your Nevolute accounts.</p>
-        ${detailsTable(detailRow('Details', description))}
-      `,
-      ctaLabel: 'View accounts',
-      ctaHref: DASHBOARD_URL,
     }),
   }
 }

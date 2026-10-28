@@ -7,6 +7,7 @@ export type LayoutOptions = {
   bodyHtml: string
   ctaLabel?: string
   ctaHref?: string
+  footerHtml?: string
 }
 
 export function renderEmailLayout(options: LayoutOptions) {
@@ -46,7 +47,8 @@ export function renderEmailLayout(options: LayoutOptions) {
           </tr>
           <tr>
             <td style="padding:20px 32px 28px;border-top:1px solid #e5e7eb;font-size:12px;line-height:1.5;color:#64748b;">
-              This is an automated message from ${escapeHtml(APP_NAME)}. If you did not expect this email, contact
+              ${options.footerHtml ?? ''}
+              This is an automated transaction notice from ${escapeHtml(APP_NAME)}. If you did not expect this email, contact
               <a href="mailto:${escapeHtml(SUPPORT_EMAIL)}" style="color:#0f172a;">${escapeHtml(SUPPORT_EMAIL)}</a>.
             </td>
           </tr>

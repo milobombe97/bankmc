@@ -2,7 +2,7 @@ import {
   accountDeletedEmail,
   accountStatusAdminEmail,
   accountSuspendedEmail,
-  internalTransferEmail,
+  internalTransferNoticeEmail,
   kycDecisionEmail,
   kycSubmittedAdminEmail,
   kycSubmittedEmail,
@@ -11,44 +11,122 @@ import {
   receiptSubmittedEmail,
   adminBalanceAdjustAdminEmail,
   adminBalanceAdjustEmail,
-  transferAdminEmail,
-  transferReceiverEmail,
-  transferSenderEmail,
+  transferAdminNoticeEmail,
+  transferReceiverNoticeEmail,
+  transferSenderNoticeEmail,
+  type TransferNoticeContext,
   welcomeEmail,
 } from './templates/messages.ts'
 import { sendAdminOnly, sendEmail } from './resend.ts'
-import { getAccountCurrency, getProfile, getTransaction, type ProfileRow } from './supabase-admin.ts'
+import { profileDisplayName } from './format.ts'
+import { getAccountCurrency, getAccountLabel, getProfile, getTransaction, type ProfileRow } from './supabase-admin.ts'
 
-async function dispatchApprovedTransfer(record: Record<string, unknown>) {
+async function buildP2PContext(
+  record: Record<string, unknown>,
+  status: 'pending' | 'completed',
+): Promise<{ ctx: TransferNoticeContext } | { error: string }> {
   const txId = String(record.id ?? '')
   const amount = Number(record.amount)
+  const userId = String(record.user_id)
+  const accountCode = String(record.account_id ?? 'usd')
+  const sender = await getProfile(userId)
+  if (!sender?.email) return { error: 'missing sender' }
+
+  const incoming = await getTransaction(`${txId}-in`)
+  if (!incoming) return { error: 'missing incoming leg' }
+
+  const receiver = await getProfile(incoming.user_id)
+  if (!receiver?.email) return { error: 'missing receiver' }
+
+  const currency = await getAccountCurrency(userId, accountCode)
+  const senderAccount = await getAccountLabel(userId, accountCode)
+  const receiverAccount = await getAccountLabel(incoming.user_id, incoming.account_id)
+
+  const initiatedAt = String(record.created_at ?? record.updated_at ?? new Date().toISOString())
+
+  return {
+    ctx: {
+      referenceId: txId,
+      amount,
+      currency,
+      description: String(record.name ?? 'Transfer'),
+      status,
+      initiatedAt,
+      sender: {
+        displayName: profileDisplayName(sender),
+        email: sender.email,
+        accountLabel: senderAccount,
+      },
+      receiver: {
+        displayName: profileDisplayName(receiver),
+        email: receiver.email,
+        accountLabel: receiverAccount,
+      },
+    },
+  }
+}
+
+async function sendP2PTransferEmails(ctx: TransferNoticeContext) {
+  const senderMsg = transferSenderNoticeEmail(ctx)
+  const receiverMsg = transferReceiverNoticeEmail({ ...ctx, amount: Math.abs(ctx.amount) })
+  const adminMsg = transferAdminNoticeEmail(ctx)
+  await sendEmail({ to: ctx.sender.email, subject: senderMsg.subject, html: senderMsg.html })
+  await sendEmail({ to: ctx.receiver.email, subject: receiverMsg.subject, html: receiverMsg.html })
+  await sendAdminOnly(adminMsg)
+}
+
+async function dispatchPendingFromIncoming(incomingRecord: Record<string, unknown>) {
+  const inId = String(incomingRecord.id ?? '')
+  if (!inId.endsWith('-in')) return { handled: false as const, reason: 'not incoming leg' }
+  const outId = inId.slice(0, -3)
+  const outgoing = await getTransaction(outId)
+  if (!outgoing) return { handled: false as const, reason: 'outgoing missing' }
+  const built = await buildP2PContext(outgoing as unknown as Record<string, unknown>, 'pending')
+  if ('error' in built) return { handled: false as const, reason: built.error }
+  await sendP2PTransferEmails(built.ctx)
+  return { handled: true as const, event: 'transfer_p2p_pending' }
+}
+
+async function dispatchTransfer(record: Record<string, unknown>, status: 'pending' | 'completed') {
+  const txId = String(record.id ?? '')
+  const amount = Number(record.amount)
+  const userId = String(record.user_id)
   if (txId.endsWith('-in')) return { handled: false as const, reason: 'incoming leg skipped' }
   if (amount >= 0) return { handled: false as const, reason: 'not outgoing leg' }
 
-  const userId = String(record.user_id)
-  const sender = await getProfile(userId)
-  if (!sender?.email) return { handled: false as const, reason: 'missing sender' }
-  const currency = await getAccountCurrency(userId, String(record.account_id ?? 'personal'))
-  const description = String(record.name ?? 'Transfer')
-
   const incoming = await getTransaction(`${txId}-in`)
   if (incoming) {
-    const receiver = await getProfile(incoming.user_id)
-    if (!receiver?.email) return { handled: false as const, reason: 'missing receiver' }
-    const counterparty = receiver.email
-    const senderMsg = transferSenderEmail(amount, currency, counterparty, description)
-    const receiverMsg = transferReceiverEmail(Number(incoming.amount), currency, sender.email, incoming.name)
-    await sendEmail({ to: sender.email, subject: senderMsg.subject, html: senderMsg.html })
-    await sendEmail({ to: receiver.email, subject: receiverMsg.subject, html: receiverMsg.html })
-    const adminMsg = transferAdminEmail(sender.email, receiver.email, amount, currency, description)
-    await sendAdminOnly(adminMsg)
-    return { handled: true as const, event: 'transfer_p2p' }
+    if (incoming.user_id === userId) {
+      const sender = await getProfile(userId)
+      if (!sender?.email) return { handled: false as const, reason: 'missing sender' }
+      const currency = await getAccountCurrency(userId, String(record.account_id ?? 'usd'))
+      const senderAccount = await getAccountLabel(userId, String(record.account_id ?? 'usd'))
+      const receiverAccount = await getAccountLabel(incoming.user_id, incoming.account_id)
+      const internalMsg = internalTransferNoticeEmail({
+        referenceId: txId,
+        amount,
+        currency,
+        description: String(record.name ?? 'Transfer'),
+        status: 'completed',
+        initiatedAt: String(record.created_at ?? new Date().toISOString()),
+        sender: {
+          displayName: profileDisplayName(sender),
+          email: sender.email,
+          accountLabel: senderAccount,
+        },
+        receiverAccountLabel: receiverAccount,
+      })
+      await sendEmail({ to: sender.email, subject: internalMsg.subject, html: internalMsg.html, ccAdmin: true })
+      return { handled: true as const, event: 'transfer_internal' }
+    }
+
+    const built = await buildP2PContext(record, status)
+    if ('error' in built) return { handled: false as const, reason: built.error }
+    await sendP2PTransferEmails(built.ctx)
+    return { handled: true as const, event: status === 'completed' ? 'transfer_p2p' : 'transfer_p2p_pending' }
   }
 
-  const internalMsg = internalTransferEmail(Math.abs(amount), currency, description)
-  await sendEmail({ to: sender.email, subject: internalMsg.subject, html: internalMsg.html, ccAdmin: true })
-  await sendAdminOnly(transferAdminEmail(sender.email, sender.email, amount, currency, description))
-  return { handled: true as const, event: 'transfer_internal' }
+  return { handled: false as const, reason: 'transfer pair not found' }
 }
 
 type WebhookPayload = {
@@ -65,8 +143,7 @@ function tableName(table: string) {
 
 function profileName(profile: ProfileRow | null) {
   if (!profile) return 'Customer'
-  const name = `${profile.first_name ?? ''} ${profile.last_name ?? ''}`.trim()
-  return name || profile.email
+  return profileDisplayName(profile)
 }
 
 export async function dispatchTransactionalEmail(payload: WebhookPayload) {
@@ -142,7 +219,7 @@ export async function dispatchTransactionalEmail(payload: WebhookPayload) {
       const profile = await getProfile(userId)
       if (!profile?.email) return { handled: false, reason: 'missing profile' }
       const amount = Number(record.amount)
-      const currency = String(record.currency ?? 'GBP')
+      const currency = String(record.currency ?? 'USD')
       const userMsg = receiptSubmittedEmail(amount, currency)
       await sendEmail({ to: profile.email, subject: userMsg.subject, html: userMsg.html, ccAdmin: true })
       const adminMsg = receiptSubmittedAdminEmail(profile.email, amount, currency)
@@ -160,7 +237,7 @@ export async function dispatchTransactionalEmail(payload: WebhookPayload) {
       const profile = await getProfile(userId)
       if (!profile?.email) return { handled: false, reason: 'missing profile' }
       const amount = Number(record.amount)
-      const currency = String(record.currency ?? 'GBP')
+      const currency = String(record.currency ?? 'USD')
       const approved = status === 'approved'
       const msg = receiptDecisionEmail(
         approved,
@@ -176,7 +253,6 @@ export async function dispatchTransactionalEmail(payload: WebhookPayload) {
   if (table === 'transactions' && payload.type === 'INSERT') {
     const category = String(record.category ?? '')
     const status = String(record.status ?? '')
-    const txId = String(record.id ?? '')
     const amount = Number(record.amount)
     const method = String(record.method ?? '')
 
@@ -184,7 +260,7 @@ export async function dispatchTransactionalEmail(payload: WebhookPayload) {
       const userId = String(record.user_id)
       const profile = await getProfile(userId)
       if (!profile?.email) return { handled: false, reason: 'missing profile' }
-      const currency = await getAccountCurrency(userId, String(record.account_id ?? 'personal'))
+      const currency = await getAccountCurrency(userId, String(record.account_id ?? 'usd'))
       if (amount > 0) {
         const msg = receiptDecisionEmail(true, amount, currency)
         await sendEmail({ to: profile.email, subject: msg.subject, html: msg.html, ccAdmin: true })
@@ -202,8 +278,17 @@ export async function dispatchTransactionalEmail(payload: WebhookPayload) {
       return { handled: false, reason: 'zero amount' }
     }
 
-    if (category !== 'Transfer' || status !== 'approved') return { handled: false, reason: 'not transfer' }
-    return await dispatchApprovedTransfer(record)
+    if (category === 'Transfer' && status === 'pending') {
+      const txId = String(record.id ?? '')
+      if (txId.endsWith('-in')) {
+        return await dispatchPendingFromIncoming(record)
+      }
+      return { handled: false, reason: 'await incoming leg' }
+    }
+    if (category === 'Transfer' && status === 'approved') {
+      return await dispatchTransfer(record, 'completed')
+    }
+    return { handled: false, reason: 'not transfer' }
   }
 
   if (table === 'transactions' && payload.type === 'UPDATE') {
@@ -213,7 +298,7 @@ export async function dispatchTransactionalEmail(payload: WebhookPayload) {
     if (category !== 'Transfer' || status !== 'approved' || prev === 'approved') {
       return { handled: false, reason: 'not transfer approval' }
     }
-    return await dispatchApprovedTransfer(record)
+    return await dispatchTransfer(record, 'completed')
   }
 
   return { handled: false, reason: 'no matching event' }
