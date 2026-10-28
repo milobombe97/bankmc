@@ -62,29 +62,28 @@ https://YOUR_PROJECT_REF.supabase.co/functions/v1/transactional-email
 
 ---
 
-## 4. Database Webhooks (Dashboard)
+## 4. Wire the database to the Edge Function
 
-In **Supabase Dashboard → Database → Webhooks**, create one webhook per table (or one webhook with filters if your plan supports it). Recommended: **separate webhooks** for clarity.
+### Option A (recommended): SQL triggers + pg_net
 
-**HTTP request settings (all webhooks):**
+This repo includes migration `supabase/migrations/*_email_dispatch_triggers.sql`. It posts the same JSON payload as Dashboard webhooks when rows change.
 
-| Field | Value |
-|-------|--------|
-| Method | `POST` |
-| URL | `https://YOUR_PROJECT_REF.supabase.co/functions/v1/transactional-email` |
-| Headers | `x-webhook-secret: <same as EMAIL_WEBHOOK_SECRET>` |
-| Content type | `application/json` |
+```bash
+npx supabase db push
+```
 
-### Webhook matrix
+Configure the function URL and webhook secret (must match `EMAIL_WEBHOOK_SECRET`):
 
-| Name | Table | Events | Emails triggered |
-|------|--------|--------|------------------|
-| `email-profiles` | `public.profiles` | INSERT, UPDATE | Welcome (INSERT); suspended / deleted (UPDATE status) |
-| `email-kyc` | `public.kyc_submissions` | INSERT, UPDATE | KYC submitted; approved / rejected |
-| `email-receipts` | `public.receipts` | INSERT, UPDATE | Receipt submitted; approved / rejected |
-| `email-transactions` | `public.transactions` | INSERT | Transfer completed (outgoing `xfer-*` rows only) |
+```bash
+# Copy supabase/scripts/configure-email-dispatch.example.sql → configure-email-dispatch.local.sql, edit, then:
+npx supabase db query --linked -f supabase/scripts/configure-email-dispatch.local.sql
+```
 
-Payload must include **`old_record`** on UPDATE webhooks (default in Supabase) so status transitions are detected.
+Tables wired: `profiles`, `kyc_submissions`, `receipts`, `transactions` (INSERT only).
+
+### Option B: Dashboard Database Webhooks
+
+If you prefer the UI, use **Database → Webhooks** with the same URL, header `x-webhook-secret`, and tables/events listed in `supabase/webhooks.example.json`. Do **not** use both Option A and B on the same tables (duplicate emails).
 
 ---
 
