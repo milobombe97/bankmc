@@ -75,6 +75,7 @@ export function AdminPaymentDetail() {
   }
 
   const account = bankAccounts.find((item) => item.id === row.item.accountId)
+  const skipReceipt = row.item.category === 'Transfer' || row.item.category === 'Withdrawal'
 
   async function decide(action: 'approve' | 'decline') {
     setActionError('')
@@ -101,15 +102,27 @@ export function AdminPaymentDetail() {
           {account ? formatMoney(row.item.amount, account.currency) : row.item.amount}
         </p>
       </div>
-      <section>
-        <h2 className="mb-3 text-lg font-medium">Receipt</h2>
-        <FilePreview file={file} fallbackName={row.item.receiptName} />
-      </section>
+      {!skipReceipt ? (
+        <section>
+          <h2 className="mb-3 text-lg font-medium">Receipt</h2>
+          <FilePreview file={file} fallbackName={row.item.receiptName} />
+        </section>
+      ) : (
+        <p className="text-sm text-revolut-ink/60">
+          {row.item.category === 'Transfer'
+            ? 'Nevolute-to-Nevolute transfer. No receipt is required — approve or decline the pending transfer.'
+            : 'Withdrawal request. No receipt is required — approve or decline in Withdrawals or here if listed.'}
+        </p>
+      )}
       <dl className="grid gap-3 rounded-[1.5rem] bg-white p-5 text-sm sm:grid-cols-2">
         <div><dt className="text-revolut-ink/45">Date</dt><dd>{row.item.date}</dd></div>
         <div><dt className="text-revolut-ink/45">Account</dt><dd>{account?.name ?? row.item.accountId}</dd></div>
         <div><dt className="text-revolut-ink/45">Method</dt><dd>{paymentMethodName(row.item)}</dd></div>
-        <div><dt className="text-revolut-ink/45">Receipt status</dt><dd>{row.item.status === 'approved' ? 'Approved' : row.item.status === 'declined' ? 'Declined' : row.item.receiptSent ? 'Sent for review' : row.item.receiptName ? 'Attached, not sent' : 'Not uploaded'}</dd></div>
+        {!skipReceipt ? (
+          <div><dt className="text-revolut-ink/45">Receipt status</dt><dd>{row.item.status === 'approved' ? 'Approved' : row.item.status === 'declined' ? 'Declined' : row.item.receiptSent ? 'Sent for review' : row.item.receiptName ? 'Attached, not sent' : 'Not uploaded'}</dd></div>
+        ) : (
+          <div><dt className="text-revolut-ink/45">Type</dt><dd>{row.item.category}</dd></div>
+        )}
       </dl>
       {row.item.status === 'pending' ? (
         <div className="flex flex-wrap gap-2">

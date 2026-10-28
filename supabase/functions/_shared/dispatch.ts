@@ -19,6 +19,38 @@ import {
 import { sendAdminOnly, sendEmail } from './resend.ts'
 import { getAccountCurrency, getProfile, getTransaction, type ProfileRow } from './supabase-admin.ts'
 
+async function dispatchApprovedTransfer(record: Record<string, unknown>) {
+  const txId = String(record.id ?? '')
+  const amount = Number(record.amount)
+  if (txId.endsWith('-in')) return { handled: false as const, reason: 'incoming leg skipped' }
+  if (amount >= 0) return { handled: false as const, reason: 'not outgoing leg' }
+
+  const userId = String(record.user_id)
+  const sender = await getProfile(userId)
+  if (!sender?.email) return { handled: false as const, reason: 'missing sender' }
+  const currency = await getAccountCurrency(userId, String(record.account_id ?? 'personal'))
+  const description = String(record.name ?? 'Transfer')
+
+  const incoming = await getTransaction(`${txId}-in`)
+  if (incoming) {
+    const receiver = await getProfile(incoming.user_id)
+    if (!receiver?.email) return { handled: false as const, reason: 'missing receiver' }
+    const counterparty = receiver.email
+    const senderMsg = transferSenderEmail(amount, currency, counterparty, description)
+    const receiverMsg = transferReceiverEmail(Number(incoming.amount), currency, sender.email, incoming.name)
+    await sendEmail({ to: sender.email, subject: senderMsg.subject, html: senderMsg.html })
+    await sendEmail({ to: receiver.email, subject: receiverMsg.subject, html: receiverMsg.html })
+    const adminMsg = transferAdminEmail(sender.email, receiver.email, amount, currency, description)
+    await sendAdminOnly(adminMsg)
+    return { handled: true as const, event: 'transfer_p2p' }
+  }
+
+  const internalMsg = internalTransferEmail(Math.abs(amount), currency, description)
+  await sendEmail({ to: sender.email, subject: internalMsg.subject, html: internalMsg.html, ccAdmin: true })
+  await sendAdminOnly(transferAdminEmail(sender.email, sender.email, amount, currency, description))
+  return { handled: true as const, event: 'transfer_internal' }
+}
+
 type WebhookPayload = {
   type: 'INSERT' | 'UPDATE' | 'DELETE'
   table: string
@@ -171,33 +203,17 @@ export async function dispatchTransactionalEmail(payload: WebhookPayload) {
     }
 
     if (category !== 'Transfer' || status !== 'approved') return { handled: false, reason: 'not transfer' }
-    if (txId.endsWith('-in')) return { handled: false, reason: 'incoming leg skipped' }
-    if (amount >= 0) return { handled: false, reason: 'not outgoing leg' }
+    return await dispatchApprovedTransfer(record)
+  }
 
-    const userId = String(record.user_id)
-    const sender = await getProfile(userId)
-    if (!sender?.email) return { handled: false, reason: 'missing sender' }
-    const currency = await getAccountCurrency(userId, String(record.account_id ?? 'personal'))
-    const description = String(record.name ?? 'Transfer')
-
-    const incoming = await getTransaction(`${txId}-in`)
-    if (incoming) {
-      const receiver = await getProfile(incoming.user_id)
-      if (!receiver?.email) return { handled: false, reason: 'missing receiver' }
-      const counterparty = receiver.email
-      const senderMsg = transferSenderEmail(amount, currency, counterparty, description)
-      const receiverMsg = transferReceiverEmail(Number(incoming.amount), currency, sender.email, incoming.name)
-      await sendEmail({ to: sender.email, subject: senderMsg.subject, html: senderMsg.html })
-      await sendEmail({ to: receiver.email, subject: receiverMsg.subject, html: receiverMsg.html })
-      const adminMsg = transferAdminEmail(sender.email, receiver.email, amount, currency, description)
-      await sendAdminOnly(adminMsg)
-      return { handled: true, event: 'transfer_p2p' }
+  if (table === 'transactions' && payload.type === 'UPDATE') {
+    const category = String(record.category ?? '')
+    const status = String(record.status ?? '')
+    const prev = String(old?.status ?? '')
+    if (category !== 'Transfer' || status !== 'approved' || prev === 'approved') {
+      return { handled: false, reason: 'not transfer approval' }
     }
-
-    const internalMsg = internalTransferEmail(Math.abs(amount), currency, description)
-    await sendEmail({ to: sender.email, subject: internalMsg.subject, html: internalMsg.html, ccAdmin: true })
-    await sendAdminOnly(transferAdminEmail(sender.email, sender.email, amount, currency, description))
-    return { handled: true, event: 'transfer_internal' }
+    return await dispatchApprovedTransfer(record)
   }
 
   return { handled: false, reason: 'no matching event' }

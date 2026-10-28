@@ -154,7 +154,7 @@ export async function reviewPayment(
     .eq('status', 'pending')
     .maybeSingle()
 
-  if (receipt?.id) {
+  if (receipt?.id && !transactionId.startsWith('xfer-')) {
     const { error } = await supabase.rpc('review_receipt', {
       p_receipt_id: receipt.id,
       p_decision: decision === 'approved' ? 'approved' : 'rejected',
@@ -173,6 +173,17 @@ export async function reviewPayment(
 
   await pullAccountBalances(userId)
   await import('./remote').then((m) => m.pullTransactionsForUser(userId))
+  if (decision === 'approved' && transactionId.startsWith('xfer-') && !transactionId.endsWith('-in')) {
+    const { data: incoming } = await supabase
+      .from('transactions')
+      .select('user_id')
+      .eq('id', `${transactionId}-in`)
+      .maybeSingle()
+    if (incoming?.user_id) {
+      await pullAccountBalances(incoming.user_id as string)
+      await import('./remote').then((m) => m.pullTransactionsForUser(incoming.user_id as string))
+    }
+  }
   return { ok: true as const }
 }
 

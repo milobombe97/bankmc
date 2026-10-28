@@ -729,6 +729,8 @@ set search_path = public
 as $$
 declare
   t public.transactions%rowtype;
+  incoming public.transactions%rowtype;
+  v_in_id text;
 begin
   if not public.is_staff() then
     raise exception 'Not authorized';
@@ -747,6 +749,26 @@ begin
   end if;
   if t.status is distinct from 'pending' then
     raise exception 'Transaction is not pending';
+  end if;
+
+  v_in_id := p_transaction_id || '-in';
+
+  if t.category = 'Transfer' and t.amount < 0 and t.id not like '%-in' then
+    select * into incoming from public.transactions where id = v_in_id for update;
+    if p_decision = 'approved' then
+      perform public.apply_account_delta(t.user_id, t.account_id, t.amount);
+      update public.transactions set status = 'approved' where id = p_transaction_id;
+      if incoming.id is not null then
+        perform public.apply_account_delta(incoming.user_id, incoming.account_id, incoming.amount);
+        update public.transactions set status = 'approved' where id = v_in_id;
+      end if;
+    else
+      update public.transactions set status = 'declined' where id = p_transaction_id;
+      if incoming.id is not null then
+        update public.transactions set status = 'declined' where id = v_in_id;
+      end if;
+    end if;
+    return;
   end if;
 
   if p_decision = 'approved' then
@@ -881,9 +903,6 @@ begin
   v_out_id := 'xfer-' || v_stamp;
   v_in_id := 'xfer-' || v_stamp || '-in';
 
-  perform public.apply_account_delta(v_from_id, p_from_account_code, -p_amount);
-  perform public.apply_account_delta(v_to_id, v_to_account, p_amount);
-
   insert into public.transactions (id, user_id, account_id, name, category, amount, date, status)
   values (
     v_out_id,
@@ -893,7 +912,7 @@ begin
     'Transfer',
     -p_amount,
     current_date,
-    'approved'
+    'pending'
   );
 
   insert into public.transactions (id, user_id, account_id, name, category, amount, date, status)
@@ -905,7 +924,7 @@ begin
     'Transfer',
     p_amount,
     current_date,
-    'approved'
+    'pending'
   );
 
   return jsonb_build_object(

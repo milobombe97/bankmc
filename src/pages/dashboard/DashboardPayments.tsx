@@ -20,6 +20,7 @@ export function DashboardPayments() {
   const [method, setMethod] = useState(() => keepMethod(country, 'fps'))
   const [amount, setAmount] = useState('')
   const [error, setError] = useState('')
+  const [submitted, setSubmitted] = useState('')
 
   const source = bankAccounts.find((account) => account.id === from) ?? bankAccounts[0]
 
@@ -65,6 +66,7 @@ export function DashboardPayments() {
         setError('Connect Supabase to send money to another Nevolute customer by email.')
         return
       }
+      setSubmitted(`Transfer of ${formatMoney(value, source.currency)} to ${target} is pending verification.`)
     } else {
       recordPending({
         accountId: source.id,
@@ -83,7 +85,7 @@ export function DashboardPayments() {
       <div>
         <h1 className="text-3xl font-medium tracking-[-0.04em]">Send money</h1>
         <p className="mt-2 text-sm text-revolut-ink/60">
-          Send instantly to another Nevolute customer using their email, or enter a name for an external payment that stays pending until support approves it.
+          Send to another Nevolute customer by email (pending until Nevolute Inc. approves), or enter a name for an external payment that stays pending until support approves it.
         </p>
         <form className="mt-8 space-y-4" onSubmit={onSubmit}>
           <Field label="From">
@@ -120,6 +122,11 @@ export function DashboardPayments() {
             />
           </Field>
           <Button type="submit">Send</Button>
+          {submitted ? (
+            <p className="text-sm font-medium text-amber-800" role="status">
+              {submitted}
+            </p>
+          ) : null}
         </form>
       </div>
       <aside className="rounded-[1.75rem] bg-white p-6">

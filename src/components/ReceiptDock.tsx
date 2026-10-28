@@ -21,6 +21,7 @@ export function ReceiptDock() {
         ? loadClientTransactions(clientId).filter(
             (item) =>
               item.category !== 'Withdrawal' &&
+              item.category !== 'Transfer' &&
               (item.status === 'pending' || item.status === 'declined' || (item.status === 'approved' && !item.receiptDismissed)),
           )
         : [],

@@ -356,7 +356,7 @@ function QuickTransfer({ onDone }: { onDone: () => void }) {
         setError('Connect Supabase to send to another Nevolute customer by email.')
         return
       }
-      setSent(`${formatMoney(value, source.currency)} sent to ${payee}`)
+      setSent(`Transfer of ${formatMoney(value, source.currency)} to ${payee} is pending verification.`)
     } else if (external) {
       recordPending({
         accountId: source.id,

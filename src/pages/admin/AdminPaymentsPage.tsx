@@ -3,6 +3,7 @@ import { Link } from 'react-router-dom'
 import { loadClients } from '../../auth/session'
 import { bankAccounts, formatMoney, loadClientTransactions, paymentMethodName, type Transaction } from '../../data/banking'
 import { findReceiptFile } from '../../data/fileStore'
+import { supabaseEnabled } from '../../lib/supabase'
 import { useAdminTick } from './useAdminTick'
 
 export type PendingPayment = { clientId: string; clientName: string; item: Transaction }
@@ -33,6 +34,10 @@ export function AdminPaymentsPage() {
   const rows = useMemo(() => reviewedPayments(filter), [tick, filter])
   const empty = filter === 'pending' ? 'No payments are waiting.' : filter === 'approved' ? 'No payments have been approved.' : 'No payments have been declined.'
 
+  useEffect(() => {
+    if (!supabaseEnabled()) return
+    void import('../../data/remote').then((remote) => remote.refreshClientsFromRemote())
+  }, [tick])
   return (
     <main className="max-w-5xl">
       <h1 className="text-3xl font-medium tracking-[-0.04em]">Payments</h1>
