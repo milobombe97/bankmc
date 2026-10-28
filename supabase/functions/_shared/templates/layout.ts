@@ -1,4 +1,4 @@
-import { APP_NAME, SUPPORT_EMAIL } from '../constants.ts'
+import { APP_NAME, COMPANY_WEB_URL, REGISTERED_POSTAL_ADDRESS, SUPPORT_EMAIL } from '../constants.ts'
 import { escapeHtml } from '../format.ts'
 
 export type LayoutOptions = {
@@ -8,6 +8,23 @@ export type LayoutOptions = {
   ctaLabel?: string
   ctaHref?: string
   footerHtml?: string
+  referenceId?: string
+}
+
+function institutionalHtmlFooter(referenceId?: string) {
+  const ref = referenceId
+    ? `<p style="margin:12px 0 0;font-size:11px;color:#94a3b8;">Reference: ${escapeHtml(referenceId)}</p>`
+    : ''
+  return `${ref}
+<p style="margin:16px 0 0;font-size:11px;line-height:1.55;color:#94a3b8;">
+  <strong>${escapeHtml(APP_NAME)}</strong><br />
+  ${escapeHtml(REGISTERED_POSTAL_ADDRESS)}<br />
+  <a href="${escapeHtml(COMPANY_WEB_URL)}" style="color:#64748b;">${escapeHtml(COMPANY_WEB_URL)}</a>
+</p>
+<p style="margin:12px 0 0;font-size:11px;line-height:1.55;color:#94a3b8;">
+  Confidential transactional notice for the intended account holder only. This is not a marketing message.
+  Misdirected mail? Contact <a href="mailto:${escapeHtml(SUPPORT_EMAIL)}" style="color:#64748b;">${escapeHtml(SUPPORT_EMAIL)}</a> and delete this email.
+</p>`
 }
 
 export function renderEmailLayout(options: LayoutOptions) {
@@ -25,6 +42,8 @@ export function renderEmailLayout(options: LayoutOptions) {
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <meta name="color-scheme" content="light" />
+  <meta name="supported-color-schemes" content="light" />
   <title>${title}</title>
 </head>
 <body style="margin:0;padding:0;background:#f3f4f6;font-family:Segoe UI,Roboto,Helvetica,Arial,sans-serif;color:#0f172a;">
@@ -50,6 +69,7 @@ export function renderEmailLayout(options: LayoutOptions) {
               ${options.footerHtml ?? ''}
               This is an automated transaction notice from ${escapeHtml(APP_NAME)}. If you did not expect this email, contact
               <a href="mailto:${escapeHtml(SUPPORT_EMAIL)}" style="color:#0f172a;">${escapeHtml(SUPPORT_EMAIL)}</a>.
+              ${institutionalHtmlFooter(options.referenceId)}
             </td>
           </tr>
         </table>

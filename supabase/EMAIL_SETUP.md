@@ -154,6 +154,34 @@ Check **Edge Functions → transactional-email → Logs** in Supabase and **Rese
 
 ---
 
+## 9. Deliverability (banking / transactional standards)
+
+Code in `supabase/functions/_shared/` implements practices used by financial institutions to reduce spam scoring and blacklisting:
+
+| Requirement | Implementation |
+|-------------|----------------|
+| **Authenticated sending** | Verify domain in Resend with **SPF**, **DKIM**, and **DMARC** (DNS at your registrar). Without these, inbox placement fails regardless of content. |
+| **Aligned From / Reply-To** | `FROM_EMAIL` and `REPLY_TO_EMAIL` on the same verified domain (`info@nevoluteinc.com`). |
+| **Multipart alternative** | Every send includes **HTML + plain text** (`emailStandards.ts` → `buildPlainBody`). |
+| **RFC 3834 auto-generated** | Header `Auto-Submitted: auto-generated` on all transactional mail. |
+| **No auto-replies to customers** | `X-Auto-Response-Suppress: All`. |
+| **List-Unsubscribe (mailto)** | Header for notification preference contact (transactional, not marketing lists). |
+| **Reference tracing** | `X-Entity-Ref-ID` + Resend tags (`category`, `stream=transactional`) per message type. |
+| **Institutional footer** | Company name, postal address (`REGISTERED_POSTAL_ADDRESS` in `constants.ts`), website, confidentiality notice. |
+| **Security copy** | No password/PIN requests; misdirected-mail instructions. |
+
+**You must:** set `REGISTERED_POSTAL_ADDRESS` in `constants.ts` to your real registered business address (CAN-SPAM and many banking compliance checklists require a valid postal address).
+
+**Recommended DNS:** DMARC policy `p=quarantine` or `p=reject` after monitoring; keep SPF include to Resend only; enable Resend click/open tracking **off** for banking mail if your policy requires minimal tracking pixels.
+
+Redeploy after template or standards changes:
+
+```bash
+supabase functions deploy transactional-email --no-verify-jwt
+```
+
+---
+
 ## 8. Maintenance
 
 - Edit copy/layout in `supabase/functions/_shared/templates/`.

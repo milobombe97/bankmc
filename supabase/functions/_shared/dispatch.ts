@@ -70,9 +70,10 @@ async function sendP2PTransferEmails(ctx: TransferNoticeContext) {
   const senderMsg = transferSenderNoticeEmail(ctx)
   const receiverMsg = transferReceiverNoticeEmail({ ...ctx, amount: Math.abs(ctx.amount) })
   const adminMsg = transferAdminNoticeEmail(ctx)
-  await sendEmail({ to: ctx.sender.email, subject: senderMsg.subject, html: senderMsg.html })
-  await sendEmail({ to: ctx.receiver.email, subject: receiverMsg.subject, html: receiverMsg.html })
-  await sendAdminOnly(adminMsg)
+  const meta = { category: 'transfer', referenceId: ctx.referenceId }
+  await sendEmail({ to: ctx.sender.email, subject: senderMsg.subject, html: senderMsg.html, ...meta })
+  await sendEmail({ to: ctx.receiver.email, subject: receiverMsg.subject, html: receiverMsg.html, ...meta })
+  await sendAdminOnly({ subject: adminMsg.subject, html: adminMsg.html, ...meta })
 }
 
 async function dispatchPendingFromIncoming(incomingRecord: Record<string, unknown>) {
@@ -116,7 +117,14 @@ async function dispatchTransfer(record: Record<string, unknown>, status: 'pendin
         },
         receiverAccountLabel: receiverAccount,
       })
-      await sendEmail({ to: sender.email, subject: internalMsg.subject, html: internalMsg.html, ccAdmin: true })
+      await sendEmail({
+        to: sender.email,
+        subject: internalMsg.subject,
+        html: internalMsg.html,
+        ccAdmin: true,
+        category: 'transfer_internal',
+        referenceId: txId,
+      })
       return { handled: true as const, event: 'transfer_internal' }
     }
 
@@ -156,7 +164,14 @@ export async function dispatchTransactionalEmail(payload: WebhookPayload) {
       const email = String(record.email ?? '')
       if (!email) return { handled: false, reason: 'missing email' }
       const msg = welcomeEmail(profileName(record as ProfileRow))
-      await sendEmail({ to: email, subject: msg.subject, html: msg.html, ccAdmin: true })
+      await sendEmail({
+        to: email,
+        subject: msg.subject,
+        html: msg.html,
+        ccAdmin: true,
+        category: 'welcome',
+        referenceId: String(record.id ?? ''),
+      })
       return { handled: true, event: 'welcome' }
     }
 
@@ -169,17 +184,17 @@ export async function dispatchTransactionalEmail(payload: WebhookPayload) {
 
       if (next === 'suspended' && prev !== 'suspended') {
         const msg = accountSuspendedEmail()
-        await sendEmail({ to: email, subject: msg.subject, html: msg.html, ccAdmin: true })
+        await sendEmail({ to: email, subject: msg.subject, html: msg.html, ccAdmin: true, category: 'account_status' })
         const admin = accountStatusAdminEmail(email, 'suspended')
-        await sendAdminOnly(admin)
+        await sendAdminOnly({ ...admin, category: 'account_status_admin' })
         return { handled: true, event: 'account_suspended' }
       }
 
       if (next === 'deleted' && prev !== 'deleted') {
         const msg = accountDeletedEmail()
-        await sendEmail({ to: email, subject: msg.subject, html: msg.html, ccAdmin: true })
+        await sendEmail({ to: email, subject: msg.subject, html: msg.html, ccAdmin: true, category: 'account_status' })
         const admin = accountStatusAdminEmail(email, 'deleted')
-        await sendAdminOnly(admin)
+        await sendAdminOnly({ ...admin, category: 'account_status_admin' })
         return { handled: true, event: 'account_deleted' }
       }
     }
@@ -191,9 +206,9 @@ export async function dispatchTransactionalEmail(payload: WebhookPayload) {
       const profile = await getProfile(userId)
       if (!profile?.email) return { handled: false, reason: 'missing profile' }
       const userMsg = kycSubmittedEmail()
-      await sendEmail({ to: profile.email, subject: userMsg.subject, html: userMsg.html, ccAdmin: true })
+      await sendEmail({ to: profile.email, subject: userMsg.subject, html: userMsg.html, ccAdmin: true, category: 'kyc' })
       const adminMsg = kycSubmittedAdminEmail(profile.email, String(record.id_type ?? 'ID'))
-      await sendAdminOnly(adminMsg)
+      await sendAdminOnly({ ...adminMsg, category: 'kyc_admin', referenceId: String(record.id ?? '') })
       return { handled: true, event: 'kyc_submitted' }
     }
 
@@ -208,7 +223,14 @@ export async function dispatchTransactionalEmail(payload: WebhookPayload) {
       if (!profile?.email) return { handled: false, reason: 'missing profile' }
       const approved = status === 'approved'
       const msg = kycDecisionEmail(approved, String(record.rejection_reason ?? '') || undefined)
-      await sendEmail({ to: profile.email, subject: msg.subject, html: msg.html, ccAdmin: true })
+      await sendEmail({
+        to: profile.email,
+        subject: msg.subject,
+        html: msg.html,
+        ccAdmin: true,
+        category: 'kyc',
+        referenceId: String(record.id ?? ''),
+      })
       return { handled: true, event: approved ? 'kyc_approved' : 'kyc_rejected' }
     }
   }
@@ -221,9 +243,9 @@ export async function dispatchTransactionalEmail(payload: WebhookPayload) {
       const amount = Number(record.amount)
       const currency = String(record.currency ?? 'USD')
       const userMsg = receiptSubmittedEmail(amount, currency)
-      await sendEmail({ to: profile.email, subject: userMsg.subject, html: userMsg.html, ccAdmin: true })
+      await sendEmail({ to: profile.email, subject: userMsg.subject, html: userMsg.html, ccAdmin: true, category: 'receipt', referenceId: String(record.id ?? '') })
       const adminMsg = receiptSubmittedAdminEmail(profile.email, amount, currency)
-      await sendAdminOnly(adminMsg)
+      await sendAdminOnly({ ...adminMsg, category: 'receipt_admin', referenceId: String(record.id ?? '') })
       return { handled: true, event: 'receipt_submitted' }
     }
 
@@ -245,7 +267,14 @@ export async function dispatchTransactionalEmail(payload: WebhookPayload) {
         currency,
         String(record.rejection_reason ?? '') || undefined,
       )
-      await sendEmail({ to: profile.email, subject: msg.subject, html: msg.html, ccAdmin: true })
+      await sendEmail({
+        to: profile.email,
+        subject: msg.subject,
+        html: msg.html,
+        ccAdmin: true,
+        category: 'receipt',
+        referenceId: String(record.id ?? ''),
+      })
       return { handled: true, event: approved ? 'receipt_approved' : 'receipt_rejected' }
     }
   }
@@ -263,16 +292,16 @@ export async function dispatchTransactionalEmail(payload: WebhookPayload) {
       const currency = await getAccountCurrency(userId, String(record.account_id ?? 'usd'))
       if (amount > 0) {
         const msg = receiptDecisionEmail(true, amount, currency)
-        await sendEmail({ to: profile.email, subject: msg.subject, html: msg.html, ccAdmin: true })
+        await sendEmail({ to: profile.email, subject: msg.subject, html: msg.html, ccAdmin: true, category: 'admin_balance', referenceId: txId })
         const adminMsg = adminBalanceAdjustAdminEmail(profile.email, amount, currency, 'fund')
-        await sendAdminOnly(adminMsg)
+        await sendAdminOnly({ ...adminMsg, category: 'admin_balance', referenceId: txId })
         return { handled: true, event: 'admin_fund' }
       }
       if (amount < 0) {
         const msg = adminBalanceAdjustEmail(Math.abs(amount), currency, 'defund')
-        await sendEmail({ to: profile.email, subject: msg.subject, html: msg.html, ccAdmin: true })
+        await sendEmail({ to: profile.email, subject: msg.subject, html: msg.html, ccAdmin: true, category: 'admin_balance', referenceId: txId })
         const adminMsg = adminBalanceAdjustAdminEmail(profile.email, Math.abs(amount), currency, 'defund')
-        await sendAdminOnly(adminMsg)
+        await sendAdminOnly({ ...adminMsg, category: 'admin_balance', referenceId: txId })
         return { handled: true, event: 'admin_defund' }
       }
       return { handled: false, reason: 'zero amount' }

@@ -82,6 +82,7 @@ export function transferSenderNoticeEmail(ctx: TransferNoticeContext) {
         ${transferDetailsBlock(ctx, 'sender')}
       `,
       footerHtml: transferComplianceFooter(ctx.referenceId),
+      referenceId: ctx.referenceId,
       ctaLabel: 'View activity',
       ctaHref: DASHBOARD_URL,
     }),
@@ -107,6 +108,7 @@ export function transferReceiverNoticeEmail(ctx: TransferNoticeContext) {
         ${transferDetailsBlock(ctx, 'receiver')}
       `,
       footerHtml: transferComplianceFooter(ctx.referenceId),
+      referenceId: ctx.referenceId,
       ctaLabel: 'View balance',
       ctaHref: DASHBOARD_URL,
     }),
@@ -131,6 +133,7 @@ export function transferAdminNoticeEmail(ctx: TransferNoticeContext) {
         )}
       `,
       footerHtml: transferComplianceFooter(ctx.referenceId),
+      referenceId: ctx.referenceId,
     }),
   }
 }
@@ -156,6 +159,7 @@ export function internalTransferNoticeEmail(
         <p>${statusPill('Completed', 'success')}</p>
       `,
       footerHtml: transferComplianceFooter(ctx.referenceId),
+      referenceId: ctx.referenceId,
       ctaLabel: 'View accounts',
       ctaHref: DASHBOARD_URL,
     }),
