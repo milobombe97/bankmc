@@ -8,8 +8,8 @@ import { MethodChoices } from '../../components/MethodChoices'
 import { Field } from '../../components/Field'
 import { IconText } from '../../components/PasswordInput'
 import { SelectMenu } from '../../components/SelectMenu'
+import { cryptoAssets, cryptoMark, type CryptoAssetId } from '../../data/cryptoAssets'
 
-const coins = ['USDC', 'BTC', 'ETH'] as const
 const maxAmount = 10_000
 
 export function DashboardTopUp() {
@@ -17,7 +17,7 @@ export function DashboardTopUp() {
   const country = residenceCountry(profile?.kyc?.country)
   const [accountId, setAccountId] = useState('usd')
   const [method, setMethod] = useState(() => keepMethod(country, 'bank'))
-  const [coin, setCoin] = useState<(typeof coins)[number]>('USDC')
+  const [coin, setCoin] = useState<CryptoAssetId>('BTC')
   const [payer, setPayer] = useState('')
   const [amount, setAmount] = useState('')
   const [error, setError] = useState('')
@@ -82,15 +82,17 @@ export function DashboardTopUp() {
           <MethodChoices country={country} value={method} onChange={setMethod} />
 
           {method === 'crypto' && (
-            <Field label="Coin" hint="The amount you enter is still added in the account currency.">
+            <Field label="Cryptocurrency" hint="Choose the asset you sent. The credited amount stays in your account currency.">
               <SelectMenu
                 value={coin}
-                onChange={(value) => setCoin(value as (typeof coins)[number])}
-                options={coins.map((item) => ({
-                  value: item,
-                  label: item,
-                  hint: 'Crypto',
-                  icon: <CoinMark symbol={item} />,
+                onChange={(value) => setCoin(value as CryptoAssetId)}
+                searchable
+                placeholder="Select coin"
+                options={cryptoAssets.map((item) => ({
+                  value: item.value,
+                  label: item.label,
+                  hint: item.hint,
+                  icon: <CoinMark symbol={item.value} />,
                 }))}
               />
             </Field>
@@ -149,9 +151,11 @@ export function DashboardTopUp() {
   )
 }
 
-function CoinMark({ symbol }: { symbol: string }) {
+function CoinMark({ symbol }: { symbol: CryptoAssetId }) {
   return (
-    <span className="grid size-5 shrink-0 place-items-center rounded-full bg-revolut-ink text-[9px] font-medium text-white">
+    <span
+      className={`grid size-6 shrink-0 place-items-center rounded-full text-[10px] font-semibold text-white ${cryptoMark(symbol)}`}
+    >
       {symbol.slice(0, 1)}
     </span>
   )

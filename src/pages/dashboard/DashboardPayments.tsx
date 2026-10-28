@@ -1,7 +1,8 @@
 import { type FormEvent, useEffect, useState } from 'react'
 import { useAccount } from '../../auth/useAccount'
 import { accountBalance, availableBalance, bankAccounts, formatMoney, recordPending } from '../../data/banking'
-import { transferToUser } from '../../data/finance'
+import { assertTransferAmount, pullFinancialState, transferToUser } from '../../data/finance'
+import { supabaseEnabled } from '../../lib/supabase'
 import { keepMethod } from '../../data/payoutMethods'
 import { Button } from '../../components/Button'
 import { CountrySelect } from '../../components/CountrySelect'
@@ -23,6 +24,11 @@ export function DashboardPayments() {
   const source = bankAccounts.find((account) => account.id === from) ?? bankAccounts[0]
 
   useEffect(() => {
+    if (!profile?.id || !supabaseEnabled()) return
+    void pullFinancialState(profile.id)
+  }, [profile?.id])
+
+  useEffect(() => {
     setMethod((current) => keepMethod(country, current))
   }, [country])
 
@@ -38,7 +44,13 @@ export function DashboardPayments() {
       setError('Enter an amount greater than zero.')
       return
     }
-    if (value > availableBalance(source)) {
+    if (profile?.id && supabaseEnabled()) {
+      const limit = await assertTransferAmount(profile.id, source.id, value)
+      if (limit?.error) {
+        setError(limit.error)
+        return
+      }
+    } else if (value > availableBalance(source, profile?.id)) {
       setError('That is more than the balance still available on this account.')
       return
     }
@@ -81,7 +93,7 @@ export function DashboardPayments() {
               options={bankAccounts.map((account) => ({
                 value: account.id,
                 label: account.name,
-                hint: formatMoney(accountBalance(account), account.currency),
+                hint: formatMoney(accountBalance(account, profile?.id), account.currency),
                 icon: <AccountMark id={account.id} currency={account.currency} />,
               }))}
             />
@@ -119,7 +131,7 @@ export function DashboardPayments() {
                 <AccountMark id={account.id} currency={account.currency} />
                 {account.name}
               </span>
-              <span className="font-medium tabular-nums">{formatMoney(accountBalance(account), account.currency)}</span>
+              <span className="font-medium tabular-nums">{formatMoney(accountBalance(account, profile?.id), account.currency)}</span>
             </li>
           ))}
         </ul>

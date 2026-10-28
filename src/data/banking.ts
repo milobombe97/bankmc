@@ -330,7 +330,12 @@ export function accountBalance(account: BankAccount, clientId?: string) {
 }
 
 export function availableBalance(account: BankAccount, clientId?: string) {
-  const reserved = extraTransactions(clientId)
+  const id = clientId || loadAccount()?.id
+  const posted = loadPostedBalances(id)
+  if (supabaseEnabled() && posted && posted[account.id] !== undefined) {
+    return posted[account.id]
+  }
+  const reserved = extraTransactions(id)
     .filter((item) => item.accountId === account.id && item.status === 'pending' && item.amount < 0)
     .reduce((sum, item) => sum + item.amount, 0)
   return accountBalance(account, clientId) + reserved

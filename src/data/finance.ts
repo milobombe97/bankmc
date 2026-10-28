@@ -277,3 +277,12 @@ export async function fetchAvailableBalance(userId: string, accountCode: string)
   if (error) return null
   return Number(data)
 }
+
+export async function assertTransferAmount(userId: string, accountCode: string, amount: number) {
+  const available = await fetchAvailableBalance(userId, accountCode)
+  if (available === null) return null
+  if (amount > available) {
+    return { error: 'That is more than the balance still available on this account.' }
+  }
+  return { ok: true as const }
+}

@@ -20,7 +20,8 @@ import {
   recordTransfer,
   type Transaction,
 } from '../../data/banking'
-import { transferBetweenOwnAccounts, transferToUser } from '../../data/finance'
+import { transferBetweenOwnAccounts, assertTransferAmount, pullFinancialState, transferToUser } from '../../data/finance'
+import { supabaseEnabled } from '../../lib/supabase'
 
 export function DashboardHome() {
   const account = useAccount()
@@ -292,6 +293,11 @@ function QuickTransfer({ onDone }: { onDone: () => void }) {
   const destination = toId === 'external' ? null : ownAccounts.find((item) => item.id === toId) ?? ownAccounts[0]
 
   useEffect(() => {
+    if (!profile?.id || !supabaseEnabled()) return
+    void pullFinancialState(profile.id)
+  }, [profile?.id])
+
+  useEffect(() => {
     setMethod((current) => keepMethod(country, current))
   }, [country])
 
@@ -321,10 +327,20 @@ function QuickTransfer({ onDone }: { onDone: () => void }) {
       setSent('')
       return
     }
-    if (value > (external ? availableBalance(source) : accountBalance(source))) {
-      setError('That is more than the balance on this account.')
-      setSent('')
-      return
+    if (profile?.id && supabaseEnabled()) {
+      const limit = await assertTransferAmount(profile.id, source.id, value)
+      if (limit?.error) {
+        setError(limit.error)
+        setSent('')
+        return
+      }
+    } else {
+      const ceiling = external ? availableBalance(source, profile?.id) : accountBalance(source, profile?.id)
+      if (value > ceiling) {
+        setError('That is more than the balance on this account.')
+        setSent('')
+        return
+      }
     }
     const name = external ? payee : destination.name
     const methodText = `${methodLabel(country, method)} · ${country}`
