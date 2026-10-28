@@ -1,6 +1,7 @@
 import { type FormEvent, useState } from 'react'
 import { updateAdmin, type AdminUser } from '../../auth/admins'
-import { supabase } from '../../lib/supabase'
+import { supabaseEnabled } from '../../lib/supabase'
+import { updateStaffOnRemote } from '../../data/remote'
 import { Button } from '../../components/Button'
 import { Field } from '../../components/Field'
 import { IconText, PasswordInput } from '../../components/PasswordInput'
@@ -38,15 +39,18 @@ export function AdminProfileForm({
       return
     }
     const nextPassword = password.trim()
-    if (nextPassword && actorId === admin.id && supabase) {
-      const { data } = await supabase.auth.getUser()
-      if (data.user) {
-        const { error: passwordError } = await supabase.auth.updateUser({ password: nextPassword })
-        if (passwordError) {
-          setError(passwordError.message)
-          setSaved('')
-          return
-        }
+    const isRemoteStaffAccount = supabaseEnabled() && admin.id !== 'super' && !admin.id.startsWith('admin-')
+    if (isRemoteStaffAccount) {
+      const remote = await updateStaffOnRemote(admin.id, {
+        firstName: firstName.trim(),
+        lastName: lastName.trim(),
+        email: email.trim(),
+        password: nextPassword || undefined,
+      })
+      if (remote.error) {
+        setError(remote.error)
+        setSaved('')
+        return
       }
     }
     const result = updateAdmin(actorId, admin.id, {

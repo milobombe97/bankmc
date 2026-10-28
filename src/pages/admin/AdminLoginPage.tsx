@@ -29,7 +29,9 @@ export function AdminLoginPage() {
       setError(
         remote.account
           ? 'This email is a client account. Use a staff account to access the admin area.'
-          : remote.error ?? 'Email or password was not accepted.',
+          : remote.error?.toLowerCase().includes('invalid login credentials')
+            ? 'Invalid email or password. Staff must be added under Admin → Admins (creates a Supabase login), not only in the browser demo list.'
+            : remote.error ?? 'Email or password was not accepted.',
       )
       return
     }

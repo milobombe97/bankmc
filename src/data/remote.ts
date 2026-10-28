@@ -565,3 +565,101 @@ async function pullClients() {
 export async function refreshClientsFromRemote() {
   await pullClients()
 }
+
+function staffFunctionUrl() {
+  const url = import.meta.env.VITE_SUPABASE_URL as string | undefined
+  if (!url) return null
+  return `${url.replace(/\/$/, '')}/functions/v1/admin-staff`
+}
+
+async function staffFunctionRequest(body: Record<string, unknown>): Promise<{ error?: string; admin?: AdminUser }> {
+  if (!supabase) return { error: 'Supabase is not configured.' }
+  const endpoint = staffFunctionUrl()
+  const anon = import.meta.env.VITE_SUPABASE_ANON_KEY as string | undefined
+  if (!endpoint || !anon) return { error: 'Supabase is not configured.' }
+
+  const { data: sessionData } = await supabase.auth.getSession()
+  const token = sessionData.session?.access_token
+  if (!token) return { error: 'Sign in again as super admin, then add the staff member.' }
+
+  const response = await fetch(endpoint, {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      Authorization: `Bearer ${token}`,
+      apikey: anon,
+    },
+    body: JSON.stringify(body),
+  })
+
+  const payload = (await response.json().catch(() => ({}))) as {
+    error?: string
+    admin?: { id: string; email: string; firstName: string; lastName: string; role: 'admin' | 'super' }
+  }
+
+  if (!response.ok) return { error: payload.error ?? 'Could not update staff.' }
+
+  if (payload.admin) {
+    const admin: AdminUser = {
+      id: payload.admin.id,
+      email: payload.admin.email,
+      firstName: payload.admin.firstName,
+      lastName: payload.admin.lastName,
+      password: '',
+      role: payload.admin.role === 'super' ? 'super' : 'admin',
+    }
+    return { admin }
+  }
+
+  return {}
+}
+
+export async function listStaffFromRemote(): Promise<{ error?: string; admins?: AdminUser[] }> {
+  if (!supabase) return { error: 'Supabase is not configured.' }
+  const { data, error } = await supabase
+    .from('profiles')
+    .select('id, first_name, last_name, email, role')
+    .in('role', ['admin', 'super'])
+    .eq('status', 'active')
+    .order('role', { ascending: true })
+
+  if (error) return { error: error.message }
+
+  const admins: AdminUser[] = (data ?? []).map((row) => ({
+    id: row.id,
+    firstName: row.first_name,
+    lastName: row.last_name,
+    email: row.email,
+    password: '',
+    role: row.role === 'super' ? 'super' : 'admin',
+  }))
+
+  return { admins }
+}
+
+export async function createStaffOnRemote(entry: {
+  firstName: string
+  lastName: string
+  email: string
+  password: string
+}): Promise<{ error?: string; admin?: AdminUser }> {
+  return staffFunctionRequest({
+    action: 'create',
+    firstName: entry.firstName,
+    lastName: entry.lastName,
+    email: entry.email,
+    password: entry.password,
+  })
+}
+
+export async function updateStaffOnRemote(
+  userId: string,
+  patch: { firstName?: string; lastName?: string; email?: string; password?: string },
+): Promise<{ error?: string }> {
+  const result = await staffFunctionRequest({
+    action: 'update',
+    userId,
+    ...patch,
+  })
+  return { error: result.error }
+}

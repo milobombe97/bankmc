@@ -1,19 +1,26 @@
 import { type FormEvent, useEffect, useState } from 'react'
 import { Link, Navigate } from 'react-router-dom'
-import { addAdmin, loadAdmins, removeAdmin } from '../../auth/admins'
+import { addAdmin, adoptRemoteAdmin, loadAdmins, removeAdmin, type AdminUser } from '../../auth/admins'
+import { useAuth } from '../../auth/AuthContext'
 import { useAdmin } from '../../auth/useAdmin'
 import { Button } from '../../components/Button'
 import { Field, TextInput } from '../../components/Field'
 import { PasswordInput } from '../../components/PasswordInput'
+import { supabaseEnabled } from '../../lib/supabase'
+import { createStaffOnRemote, listStaffFromRemote } from '../../data/remote'
 
 export function AdminTeamPage() {
   const current = useAdmin()
+  const { configured } = useAuth()
+  const remoteStaff = configured && supabaseEnabled()
   const [tick, setTick] = useState(0)
+  const [staff, setStaff] = useState<AdminUser[]>(() => loadAdmins())
   const [firstName, setFirstName] = useState('')
   const [lastName, setLastName] = useState('')
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
   const [error, setError] = useState('')
+  const [busy, setBusy] = useState(false)
 
   useEffect(() => {
     const sync = () => setTick((value) => value + 1)
@@ -21,33 +28,65 @@ export function AdminTeamPage() {
     return () => window.removeEventListener('admins-changed', sync)
   }, [])
 
+  useEffect(() => {
+    if (!remoteStaff) {
+      setStaff(loadAdmins())
+      return
+    }
+    void listStaffFromRemote().then((result) => {
+      if (result.admins?.length) setStaff(result.admins)
+    })
+  }, [remoteStaff, tick])
+
   if (current && current.role !== 'super') return <Navigate to="/admin" replace />
 
-  const admins = loadAdmins()
+  const admins = remoteStaff ? staff : loadAdmins()
 
-  function onSubmit(event: FormEvent) {
+  async function onSubmit(event: FormEvent) {
     event.preventDefault()
     if (password.length < 8) {
       setError('Use at least 8 characters.')
       return
     }
-    if (loadAdmins().some((item) => item.email.toLowerCase() === email.trim().toLowerCase())) {
+    if (admins.some((item) => item.email.toLowerCase() === email.trim().toLowerCase())) {
       setError('An admin with that email already exists.')
       return
     }
-    addAdmin({ firstName: firstName.trim(), lastName: lastName.trim(), email: email.trim(), password })
+    setBusy(true)
+    setError('')
+    if (remoteStaff) {
+      const result = await createStaffOnRemote({
+        firstName: firstName.trim(),
+        lastName: lastName.trim(),
+        email: email.trim(),
+        password,
+      })
+      setBusy(false)
+      if (result.error || !result.admin) {
+        setError(result.error ?? 'Could not create staff account.')
+        return
+      }
+      adoptRemoteAdmin(result.admin)
+      setStaff((prev) => [result.admin!, ...prev.filter((item) => item.id !== result.admin!.id)])
+    } else {
+      addAdmin({ firstName: firstName.trim(), lastName: lastName.trim(), email: email.trim(), password })
+      setBusy(false)
+    }
     setFirstName('')
     setLastName('')
     setEmail('')
     setPassword('')
-    setError('')
   }
 
   return (
     <main className="max-w-3xl space-y-6">
       <div>
         <h1 className="text-3xl font-medium tracking-[-0.04em]">Admins</h1>
-        <p className="mt-2 text-sm text-revolut-ink/60">You can edit every admin’s name, email, and password, including your own. Only you can add or remove staff, and the super admin cannot be removed.</p>
+        <p className="mt-2 text-sm text-revolut-ink/60">
+          {remoteStaff
+            ? 'Staff sign in with Supabase Auth at Admin login. Adding someone here creates their real login and sets the admin role.'
+            : 'You can edit every admin’s name, email, and password, including your own. Only you can add or remove staff, and the super admin cannot be removed.'}
+        </p>
       </div>
       <ul className="overflow-hidden rounded-[1.5rem] bg-white">
         {admins.map((admin) => (
@@ -76,7 +115,9 @@ export function AdminTeamPage() {
             <PasswordInput required value={password} onChange={(event) => { setPassword(event.target.value); setError('') }} />
           </Field>
         </div>
-        <Button type="submit" className="mt-4">Add admin</Button>
+        <Button type="submit" className="mt-4" disabled={busy}>
+          {busy ? 'Creating…' : 'Add admin'}
+        </Button>
       </form>
       <span className="hidden">{tick}</span>
     </main>
