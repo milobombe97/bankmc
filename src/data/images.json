@@ -1,11 +1,13 @@
 {
   "heroPortrait": "/images/revolut/heroPortrait.png",
   "heroSky": "/images/revolut/heroSky.png",
+  "heroBank": "/images/revolut/heroBank.jpg",
   "salary": "/images/revolut/salary.png",
   "savings": "/images/revolut/savings.png",
   "cards": "/images/revolut/cards.png",
   "air": "/images/revolut/air.png",
   "security": "/images/revolut/security.png",
+  "safeSpace": "/images/revolut/safe-space.png",
   "invest": "/images/revolut/invest.png",
   "badgeTrustpilot": "/images/revolut/badgeTrustpilot.png",
   "badgeDigitalBank": "/images/revolut/badgeDigitalBank.png",

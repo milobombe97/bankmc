@@ -22,12 +22,13 @@ export function HomePage() {
 
   return (
     <div className="bg-white">
-      <section className="relative flex h-[100svh] min-h-[720px] flex-col overflow-hidden bg-[#79b4e6] text-white">
+      <section className="relative flex h-[100svh] min-h-[720px] flex-col overflow-hidden bg-[#0c1218] text-white">
         <img
-          src={images.heroPortrait}
-          alt=""
-          className="pointer-events-none absolute inset-0 h-full w-full object-cover"
+          src={images.heroBank}
+          alt="Glass bank towers"
+          className="pointer-events-none absolute inset-0 h-full w-full object-cover object-[center_35%]"
         />
+        <div className="pointer-events-none absolute inset-0 bg-[linear-gradient(180deg,rgba(8,16,28,0.62)_0%,rgba(8,16,28,0.28)_42%,rgba(8,16,28,0.38)_100%)]" />
         <Header theme="dark" />
 
         <div className="relative mx-auto flex w-full max-w-[1200px] flex-1 flex-col px-5 pt-24 lg:px-8 lg:pt-28">
@@ -47,12 +48,7 @@ export function HomePage() {
             </FadeIn>
 
             <div className="relative z-10 h-full min-h-[420px]">
-              <img
-                src={images.heroSky}
-                alt=""
-                className="absolute -top-28 left-1/2 h-[calc(100%+7rem)] w-[115%] max-w-none -translate-x-1/2 object-cover object-[62%_8%]"
-              />
-              <div className="pointer-events-none absolute left-1/2 top-[36%] w-[62%] -translate-x-1/2 rounded-[1.6rem] border border-white/75 px-4 pb-7 pt-8 text-center">
+              <div className="pointer-events-none absolute left-1/2 top-[36%] w-[62%] -translate-x-1/2 rounded-[1.6rem] border border-white/75 bg-[#0c1218]/35 px-4 pb-7 pt-8 text-center backdrop-blur-md">
                 <p className="text-sm font-medium text-white">Personal</p>
                 <p className="mt-1 text-[2.75rem] font-medium leading-none tracking-[-0.04em]">
                   £6,012
@@ -244,7 +240,7 @@ export function HomePage() {
         cta="Learn more"
         href="/security"
         tone="muted"
-        image={images.cards}
+        image={images.safeSpace}
       />
 
       <FeatureBlock
